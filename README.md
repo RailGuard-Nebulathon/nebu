@@ -93,6 +93,99 @@ features under `data/processed/competition` and writes trusted bundles under
 out-of-fold scores were ACV 0.9792 rank decay, Rail 0.8714 macro F1, and SHM 0.9614 MAPE-derived
 score. These are validation estimates, not claims about hidden-test performance.
 
+## Models used for the competition predictions
+
+The prediction files in `outputs/predictions` use CPU-based classical machine-learning models.
+They do not use the optional PyTorch neural networks. Each task has a different output and scoring
+rule, so one universal model would be a poor fit. Feature transformations and model preprocessing
+are learned from training folds only during model selection.
+
+### Door: operation segmentation and a tree ensemble
+
+**Goal:** find every door movement in one continuous signal and label the movement `Normal` or
+`Abnormal resistance`.
+
+1. The continuous stream is divided into door operations using timestamp gaps and the open/close
+   command and state channels. The original timestamps become the submitted segment boundaries.
+2. Each operation is converted into statistics describing motor current, voltage, force, door
+   travel, velocity, acceleration, stalls, energy, and temporal/spectral behaviour.
+3. Three classifiers are fitted to the 110 labelled training operations: Extra Trees, Random
+   Forest, and histogram gradient boosting. The first two average many randomized decision trees;
+   gradient boosting builds small trees sequentially, with each tree correcting errors made by the
+   trees before it.
+4. The three class-probability vectors are averaged, and the class with the highest mean
+   probability is written to `door_predictions.csv`.
+
+In compact form, the final decision is
+`argmax_class((P_extra_trees + P_random_forest + P_gradient_boosting) / 3)`. The separate boundary
+detection stage matters because the Door metric evaluates both segment overlap and classification.
+The generated Door submission is present, but unlike the other three tasks this ensemble is not
+currently stored as a reusable competition bundle.
+
+### ACV: supervised probability plus peer anomaly ranking
+
+**Goal:** rank all eight cars in one Excel case from most to least likely to have a refrigerant
+leak.
+
+Every car is summarized using its temperature, error, running-state, change, and stability
+statistics. The same car is also compared with the other seven cars in that case. These
+peer-residual features describe how unusually that car behaves relative to the fleet under the
+same operating conditions.
+
+The selected model combines two signals with equal weight:
+
+- a balanced logistic-regression probability learned from labelled cars; and
+- a robust anomaly score based on the median absolute peer residual.
+
+Both signals are converted to percentile ranks within the current case before they are averaged:
+`score = 0.5 * supervised_percentile + 0.5 * peer_anomaly_percentile`. Cars are sorted by this
+score, producing a string such as `01|04|08|03|05|07|02|06`. Model type and mixture weight were
+selected using leave-one-case-out validation, so a validation case was never used to train the
+model that ranked it.
+
+### Rail corrugation: balanced histogram gradient boosting
+
+**Goal:** classify each vibration file as `Normal`, `Side I`, or `Side II`.
+
+The feature extractor summarizes time-domain vibration shape, frequency-domain energy and peaks,
+speed transitions, speed-normalized spatial frequencies, and differences between the two sides.
+The selected classifier is a class-balanced histogram gradient-boosting model with 250 boosting
+iterations, learning rate 0.05, at most 7 leaves per tree, at least 20 samples per leaf, and L2
+regularization of 1.0.
+
+Histogram boosting first groups continuous feature values into bins. It then builds a sequence of
+small decision trees; each new tree reduces the classification loss left by the existing ensemble.
+Class balancing makes mistakes on the uncommon `Side I` and `Side II` examples count more during
+training. The configuration was selected by five-fold stratified cross-validation using macro F1,
+which gives each of the three classes equal importance.
+
+### SHM: rainflow features and log-target Ridge regression
+
+**Goal:** predict one positive cumulative fatigue-damage value for each stress-history file.
+
+Rainflow counting converts the stress trace into load cycles with different ranges and counts.
+The model inputs include weighted cycle-range quantiles, normalized cycle histograms, general
+time/frequency statistics, and damage-proxy sums for exponent values from 2 through 8. These are
+data-driven proxies only: the code does not invent an S-N curve or material constant that was not
+provided in the problem data.
+
+The target spans a large range, so training uses `z = log(damage)`. A standardized Ridge regression
+then learns a coefficient for every feature while applying an L2 penalty to prevent unstable large
+coefficients:
+`minimize ||z - Xw||^2 + alpha * ||w||^2`. At inference, the prediction is transformed back with
+`exp(z_hat)` and multiplied by the cross-validation-derived factor `0.997811`. The model family,
+target transform, and scale factor were selected with five-fold validation using the official
+MAPE-derived score. Its out-of-fold MAPE was approximately 3.86%; this is a validation estimate,
+not a guarantee of the hidden-test score.
+
+### Optional deep-learning models
+
+The repository also contains compact temporal convolution, spectral encoding, channel attention,
+and attention-pooling networks for experimentation. They repeatedly transform learned sequence
+representations and can use GPU acceleration, but they were not used to create the four CSVs in
+the current `predictions.zip`. With these relatively small labelled datasets, the validated
+classical models were selected because they generalized better and were cheaper to train.
+
 Self-supervised learning and hyperparameter optimisation are optional, explicit commands:
 
 ```bash
