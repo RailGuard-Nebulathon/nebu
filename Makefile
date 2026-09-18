@@ -1,4 +1,4 @@
-.PHONY: install install-dev test lint format inspect manifest dashboard api web web-install smoke clean
+.PHONY: install install-dev test lint format inspect manifest dashboard api web web-install train-competition smoke clean
 install:
 	pip install -e .
 install-dev:
@@ -23,6 +23,8 @@ web-install:
 	npm --prefix web/frontend install
 web:
 	npm --prefix web/frontend run dev
+train-competition:
+	python scripts/train_competition.py --task all --raw-root "$(RAW_ROOT)"
 smoke:
 	pytest -q tests/test_end_to_end_synthetic.py
 clean:

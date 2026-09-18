@@ -13,9 +13,11 @@ def spectral_entropy(power: np.ndarray) -> float:
     power = np.maximum(np.asarray(power, dtype=float), 0)
     probabilities = power / max(float(power.sum()), np.finfo(float).eps)
     probabilities = probabilities[probabilities > 0]
-    return float(-(probabilities * np.log2(probabilities)).sum() / max(np.log2(max(len(power), 2)), 1))
+    return float(
+        -(probabilities * np.log2(probabilities)).sum() / max(np.log2(max(len(power), 2)), 1)
+    )
 
 
 def band_power(frequencies: np.ndarray, power: np.ndarray, low: float, high: float) -> float:
     mask = (frequencies >= low) & (frequencies < high)
-    return float(np.trapz(power[mask], frequencies[mask])) if mask.sum() > 1 else 0.0
+    return float(np.trapezoid(power[mask], frequencies[mask])) if mask.sum() > 1 else 0.0

@@ -78,6 +78,21 @@ python scripts/train_deep.py --task door --config configs/door/deep.yaml --prepr
 The builder uses fixed-length interpolation without modifying source files. Training persists the
 per-channel normalization statistics next to its checkpoints.
 
+For the small-data competition tracks, use metric-aligned model selection instead of assuming a
+deep network will generalise:
+
+```bash
+python scripts/train_competition.py --task all \
+  --raw-root /path/to/NebulaX-Hackathon-ProblemStatement/PS3/02_Datasets
+```
+
+This explicitly performs ACV leave-one-case-out rank selection, stratified Rail macro-F1 model
+selection, and SHM log-damage/rainflow model selection by MAPE. It caches read-only engineered
+features under `data/processed/competition` and writes trusted bundles under
+`outputs/checkpoints/competition`. On the supplied training data with seed 42, the selected
+out-of-fold scores were ACV 0.9792 rank decay, Rail 0.8714 macro F1, and SHM 0.9614 MAPE-derived
+score. These are validation estimates, not claims about hidden-test performance.
+
 Self-supervised learning and hyperparameter optimisation are optional, explicit commands:
 
 ```bash

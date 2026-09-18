@@ -82,7 +82,10 @@ TASK_METADATA: dict[str, dict[str, str]] = {
 
 def _bundle_path(task: str) -> Path | None:
     raw = os.getenv(f"RAILGUARD_{task.upper()}_BUNDLE", "").strip()
-    return Path(raw).expanduser().resolve() if raw else None
+    if raw:
+        return Path(raw).expanduser().resolve()
+    default = Path("outputs/checkpoints/competition") / task
+    return default.resolve() if default.is_dir() else None
 
 
 def _bundle_available(task: str) -> bool:

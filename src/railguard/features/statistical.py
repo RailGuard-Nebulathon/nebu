@@ -17,7 +17,7 @@ def statistical_features(values: np.ndarray) -> dict[str, float]:
         "mean": float(np.mean(x)), "std": float(np.std(x)), "median": median,
         "mad": float(np.median(np.abs(x - median))), "min": float(np.min(x)), "max": float(np.max(x)),
         "range": float(np.ptp(x)), "rms": rms, "energy": float(np.square(x).sum()),
-        "integral": float(np.trapz(x)), "positive_area": float(np.maximum(x, 0).sum()),
+        "integral": float(np.trapezoid(x)), "positive_area": float(np.maximum(x, 0).sum()),
         "negative_area": float(np.minimum(x, 0).sum()), "peak_magnitude": peak,
         "peak_fraction": float(np.argmax(np.abs(x)) / max(len(x) - 1, 1)),
         "q05": float(np.quantile(x, 0.05)), "q25": float(np.quantile(x, 0.25)),
