@@ -62,3 +62,6 @@ Legend: `[x]` implemented, `[~]` partial, `[ ]` not implemented.
 ## Post-acceptance hardening
 
 - [x] ACV deep-sequence construction now canonicalizes the two supplied vendor schemas, encodes categorical operating states, records source-column/category metadata, appends per-signal availability masks, and masks empty template-car blocks instead of requiring an impossible exact numeric-column intersection.
+- [x] `better-results` now presents a playbook-backed quick decision with Healthy/Monitor/Inspect Soon/High Priority status support, reported component location, plain-language finding, urgency, next checks and Reliable/Review advised/Insufficient evidence states.
+- [x] Result disclosure is separated into Quick decision, Why this result, Technical evidence and Learn views; demo results remain operationally invalid and no engineering thresholds or causal explanations are fabricated.
+- [x] Frontend regression tests cover custom playbook overrides, all reliability paths, reported-location handling, SHM threshold safety and the four-level result navigation; production build and lint gates pass.

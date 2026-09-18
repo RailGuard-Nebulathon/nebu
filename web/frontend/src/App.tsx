@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
 import {
   Activity,
   AlertTriangle,
   ArrowDownToLine,
+  BookOpen,
   Check,
   ChevronRight,
+  CircleHelp,
   CircleDot,
   DoorOpen,
+  Eye,
   Fan,
   FileCheck2,
   Gauge,
+  ListChecks,
   Menu,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   TrainFront,
   UploadCloud,
@@ -20,6 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { fetchTasks, runPrediction } from "./api";
+import { buildDecision } from "./decision";
+import type { DecisionViewModel } from "./decision";
 import type { PredictionResponse, RunMode, TaskDescriptor, TaskId } from "./types";
 
 const fallbackTasks: TaskDescriptor[] = [
@@ -167,21 +173,22 @@ function UploadPanel({ task, file, onFile, onRun, running, mode, setMode }: {
 
 function ACVResult({ result }: { result: PredictionResponse }) {
   const ranking = result.visual.ranking ?? [];
-  const max = Math.max(...ranking.map((item) => item.score), 0.001);
+  const margin = ranking.length > 1 ? ranking[0].score - ranking[1].score : null;
   return (
     <div className="result-layout">
       <div className="result-callout">
         <span className="callout-kicker">Most likely fault location</span>
         <div className="car-orbit"><span>CAR</span><strong>{String(result.summary.top_car).padStart(2, "0")}</strong></div>
         <p>Ranked first among {result.summary.cars_ranked} cars in the uploaded case.</p>
+        {margin !== null && <div className="margin-chip"><span>Top-two margin</span><strong>{margin.toFixed(2)}</strong></div>}
       </div>
       <div className="ranking-panel">
-        <div className="panel-title"><strong>Fault ranking</strong><span>Relative model score</span></div>
+        <div className="panel-title"><strong>Fault ranking</strong><span>Model score · fixed 0–1 scale</span></div>
         <div className="rank-bars">
           {ranking.map((item, index) => (
             <div className="rank-row" key={item.car}>
               <span className="rank-index">{index + 1}</span><span className="rank-car">Car {item.car}</span>
-              <span className="bar-track"><span className="bar-fill" style={{ width: `${Math.max(5, item.score / max * 100)}%` }} /></span>
+              <span className="bar-track"><span className="bar-fill" style={{ width: `${Math.max(2, Math.min(100, item.score * 100))}%` }} /></span>
               <span className="rank-score">{item.score.toFixed(2)}</span>
             </div>
           ))}
@@ -214,11 +221,10 @@ function CorrugationResult({ result }: { result: PredictionResponse }) {
 function SHMResult({ result }: { result: PredictionResponse }) {
   const damage = Number(result.summary.predicted_damage);
   const interval = result.visual.interval;
-  const gaugeValue = Math.min(100, Math.max(0, damage * 100));
   return (
     <div className="shm-result">
-      <div className="damage-gauge" style={{ "--gauge": `${gaugeValue * 3.6}deg` } as CSSProperties}><div><span>Estimated damage</span><strong>{damage.toFixed(4)}</strong></div></div>
-      <div className="damage-copy"><span className="eyebrow">Cumulative fatigue</span><h3>Structural damage estimate</h3><p>The prediction is produced from the uploaded dynamic-stress history.</p>{interval && <div className="interval"><span>Indicative interval</span><strong>{interval[0].toFixed(4)} – {interval[1].toFixed(4)}</strong></div>}</div>
+      <div className="damage-estimate"><span>Model estimate</span><strong>{damage.toFixed(4)}</strong><small>Raw cumulative-damage value · not a percentage</small></div>
+      <div className="damage-copy"><span className="eyebrow">Cumulative fatigue</span><h3>Structural damage estimate</h3><p>Interpret this screening estimate against approved engineering limits. RailGuard does not apply an invented pass/fail threshold.</p>{interval && <div className="interval"><span>Indicative interval</span><strong>{interval[0].toFixed(4)} – {interval[1].toFixed(4)}</strong></div>}</div>
     </div>
   );
 }
@@ -227,18 +233,112 @@ function Metric({ label, value, alert = false }: { label: string; value: string;
   return <div className={`metric ${alert ? "metric-alert" : ""}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function ResultPanel({ result, onReset }: { result: PredictionResponse; onReset: () => void }) {
+function TrainInspectionMap({ result }: { result: PredictionResponse }) {
+  const ranking = result.visual.ranking ?? [];
+  const orderedCars = [...ranking].sort((left, right) => left.car.localeCompare(right.car, undefined, { numeric: true }));
+  const primary = String(result.summary.top_car ?? ranking[0]?.car ?? "");
+  const secondary = ranking[1]?.car;
+  return (
+    <section className="train-map" aria-label="Train car inspection map">
+      <div className="train-map-copy"><span>TRAIN VIEW</span><strong>Inspection order at a glance</strong><small>Highlighted by model rank, not physical severity.</small></div>
+      <div className="train-cars">
+        {orderedCars.map((item) => {
+          const state = item.car === primary ? "primary" : item.car === secondary ? "secondary" : "unflagged";
+          return <div className={`train-car ${state}`} data-status={state} key={item.car}><span>CAR</span><strong>{String(item.car).padStart(2, "0")}</strong></div>;
+        })}
+      </div>
+      <div className="train-map-legend"><span><i className="primary" /> Inspect first</span><span><i className="secondary" /> Inspect next if inconclusive</span></div>
+    </section>
+  );
+}
+
+function QuickDecision({ result, decision }: { result: PredictionResponse; decision: DecisionViewModel }) {
+  const tone = decision.status.toLowerCase().replaceAll(" ", "-");
+  const reliabilityTone = decision.reliability.toLowerCase().replaceAll(" ", "-");
+  return (
+    <section className={`decision-card tone-${tone}`} aria-labelledby="decision-finding">
+      <div className="decision-lead">
+        <span className="decision-status"><span className="status-symbol" aria-hidden="true" />{decision.status}</span>
+        <h3 id="decision-finding">{decision.finding}</h3>
+        <p>{decision.urgency}</p>
+      </div>
+      <div className="decision-facts">
+        <div><span>LOCATION</span><strong>{decision.location}</strong></div>
+        <div className={`reliability reliability-${reliabilityTone}`}><span>RELIABILITY</span><strong>{decision.reliability}</strong><small>{decision.reliabilityReason}</small></div>
+      </div>
+      {result.task === "acv" && <TrainInspectionMap result={result} />}
+      <div className="next-checks">
+        <h4><ListChecks size={17} /> Next checks</h4>
+        <ol>{decision.nextChecks.map((check) => <li key={check}>{check}</li>)}</ol>
+      </div>
+      <div className="playbook-notice"><ShieldCheck size={17} /><div><strong>Decision support · {decision.playbookLabel}</strong><span>Suggested checks come from the configured playbook, not directly from the model. Follow approved local procedures.</span></div></div>
+    </section>
+  );
+}
+
+function WhyResult({ decision }: { decision: DecisionViewModel }) {
+  return (
+    <section className="explanation-panel">
+      <div className="explanation-heading"><Eye size={20} /><div><span className="eyebrow">Plain-language evidence</span><h3>Why this result?</h3><p>These signals influenced the model output; they do not establish physical cause.</p></div></div>
+      <div className="evidence-statements">{decision.evidence.map((item, index) => <div key={item}><span>0{index + 1}</span><p>{item}</p></div>)}</div>
+      <div className="reliability-explainer"><strong>{decision.reliability}</strong><p>{decision.reliabilityReason}</p></div>
+    </section>
+  );
+}
+
+function TechnicalEvidence({ result }: { result: PredictionResponse }) {
+  if (result.task === "acv") return <ACVResult result={result} />;
+  if (result.task === "door") return <DoorResult result={result} />;
+  if (result.task === "corrugation") return <CorrugationResult result={result} />;
+  return <SHMResult result={result} />;
+}
+
+function LearnView({ task }: { task: TaskId }) {
+  const taskGuide = task === "acv"
+    ? { term: "Model score", meaning: "A ranking signal for each car. Compare cars and the top-two margin; do not read it as proof that a leak exists.", chart: "Longer bars indicate stronger model support on a fixed 0–1 scale." }
+    : task === "door"
+      ? { term: "Abnormal resistance", meaning: "A door cycle whose measured pattern was classified differently from learned normal operation.", chart: "Use the start and end times to locate flagged cycles in the source signals." }
+      : task === "corrugation"
+        ? { term: "Class probability", meaning: "Relative model support for Normal, Side I, and Side II—not the probability that operation is safe.", chart: "Compare the complete class distribution; closely matched bars require review." }
+        : { term: "Prediction interval", meaning: "A range expressing model uncertainty around cumulative damage.", chart: "Compare the entire interval—not only the centre estimate—with approved engineering limits." };
+  return (
+    <section className="learn-panel">
+      <div className="learn-heading"><BookOpen size={21} /><div><span className="eyebrow">Engineer onboarding</span><h3>How to read this result</h3></div></div>
+      <div className="learn-grid">
+        <article><span>KEY TERM</span><h4>{taskGuide.term}</h4><p>{taskGuide.meaning}</p></article>
+        <article><span>READ THE CHART</span><h4>Interpretation</h4><p>{taskGuide.chart}</p></article>
+        <article><span>SAFE USE</span><h4>Model evidence, not cause</h4><p>Important features and signal regions describe model influence. They do not prove a root cause or replace an approved inspection.</p></article>
+        <article><span>NORMAL RANGES</span><h4>Use official limits only</h4><p>RailGuard shows a normal range only when one is supplied by an approved data source. No engineering limits are invented in the UI.</p></article>
+      </div>
+    </section>
+  );
+}
+
+type ResultView = "quick" | "why" | "technical" | "learn";
+
+export function ResultPanel({ result, onReset }: { result: PredictionResponse; onReset: () => void }) {
+  const [view, setView] = useState<ResultView>("quick");
+  const decision = buildDecision(result);
+  const views: Array<{ id: ResultView; label: string; icon: typeof Eye }> = [
+    { id: "quick", label: "Quick decision", icon: ListChecks },
+    { id: "why", label: "Why this result?", icon: CircleHelp },
+    { id: "technical", label: "Technical evidence", icon: SlidersHorizontal },
+    { id: "learn", label: "Learn", icon: BookOpen },
+  ];
   return (
     <section className="results-card">
       <div className="results-header">
         <div><span className="eyebrow">Analysis complete</span><h2>{result.task_name}</h2><p>{result.source_file}</p></div>
-        <div className="results-actions"><span className={`mode-badge ${result.mode}`}>{result.mode === "real" ? "Real inference" : "Demo result"}</span><button className="download-button" onClick={() => downloadText(result.output_filename, result.csv_text)}><ArrowDownToLine size={17} /> Download CSV</button></div>
+        <div className="results-actions"><span className={`mode-badge ${result.mode}`}>{result.mode === "real" ? "Real inference" : "Demo result"}</span><button className="download-button" onClick={() => downloadText(result.output_filename, result.csv_text)}><ArrowDownToLine size={17} /> Export data</button></div>
       </div>
-      {result.mode === "demo" && <div className="demo-banner"><AlertTriangle size={18} /><div><strong>Demonstration mode</strong><span>This output is simulated and must not be submitted for scoring.</span></div></div>}
-      {result.task === "acv" && <ACVResult result={result} />}
-      {result.task === "door" && <DoorResult result={result} />}
-      {result.task === "corrugation" && <CorrugationResult result={result} />}
-      {result.task === "shm" && <SHMResult result={result} />}
+      {result.mode === "demo" && <div className="demo-banner"><AlertTriangle size={18} /><div><strong>Demonstration mode</strong><span>This output is simulated and cannot support an operational decision or competition submission.</span></div></div>}
+      <nav className="result-navigation" aria-label="Result detail level">
+        {views.map(({ id, label, icon: Icon }) => <button key={id} className={view === id ? "active" : ""} aria-pressed={view === id} onClick={() => setView(id)}><Icon size={16} />{label}</button>)}
+      </nav>
+      {view === "quick" && <QuickDecision result={result} decision={decision} />}
+      {view === "why" && <WhyResult decision={decision} />}
+      {view === "technical" && <TechnicalEvidence result={result} />}
+      {view === "learn" && <LearnView task={result.task} />}
       <div className="results-footer"><div><CircleDot size={15} /><span>Output validated against the official {result.output_filename} schema.</span></div><button className="text-button" onClick={onReset}>Start another analysis</button></div>
     </section>
   );
@@ -277,10 +377,10 @@ export default function App() {
       <Sidebar tasks={tasks} selected={selected} onSelect={selectTask} open={menuOpen} />
       <main className="main-content">
         <section className="intro">
-          <div><span className="eyebrow">Condition monitoring console</span><h1>Turn sensor data into<br /><em>maintenance decisions.</em></h1><p>Upload rail telemetry, run a trusted model, and export competition-ready predictions without touching code.</p></div>
+          <div><span className="eyebrow">Condition monitoring console</span><h1>Turn sensor data into<br /><em>maintenance decisions.</em></h1><p>Review rail telemetry, understand the model evidence, and translate each finding into a clear next check.</p></div>
           <div className="coverage-stat"><span>SUBSYSTEM COVERAGE</span><strong>04<small>/04</small></strong><div><span className="coverage-line" /><p>Door · ACV · Rail · SHM</p></div></div>
         </section>
-        <div className="workflow-strip"><span className="workflow-active"><b>1</b> Select subsystem</span><i /><span className={file ? "workflow-active" : ""}><b>2</b> Upload data</span><i /><span className={result ? "workflow-active" : ""}><b>3</b> Review result</span><i /><span className={result ? "workflow-active" : ""}><b>4</b> Download</span></div>
+        <div className="workflow-strip"><span className="workflow-active"><b>1</b> Select subsystem</span><i /><span className={file ? "workflow-active" : ""}><b>2</b> Upload data</span><i /><span className={result ? "workflow-active" : ""}><b>3</b> Review decision</span><i /><span className={result ? "workflow-active" : ""}><b>4</b> Inspect evidence</span></div>
         <TaskSelector tasks={tasks} selected={selected} onSelect={selectTask} />
         {error && <div className="error-banner"><AlertTriangle size={18} /><span>{error}</span><button onClick={() => setError("")}><X size={16} /></button></div>}
         {!result ? <UploadPanel task={task} file={file} onFile={setFile} onRun={analyse} running={running} mode={mode} setMode={setMode} /> : <ResultPanel result={result} onReset={() => { setResult(null); setFile(null); }} />}
