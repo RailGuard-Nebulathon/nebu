@@ -6,8 +6,21 @@ import pytest
 
 pytest.importorskip("multipart")
 TestClient = pytest.importorskip("fastapi.testclient").TestClient
-app = pytest.importorskip("railguard_api.main").app
+api_module = pytest.importorskip("railguard_api.main")
+app = api_module.app
 client = TestClient(app)
+
+
+def test_cors_origins_are_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "RAILGUARD_CORS_ORIGINS",
+        " https://railguard.example.com/, https://operators.example.com ",
+    )
+
+    assert api_module._cors_origins() == [
+        "https://railguard.example.com",
+        "https://operators.example.com",
+    ]
 
 
 def test_health_and_task_contract(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -97,6 +97,14 @@ def _demo_allowed() -> bool:
     return os.getenv("RAILGUARD_ALLOW_DEMO", "true").lower() in {"1", "true", "yes"}
 
 
+def _cors_origins() -> list[str]:
+    raw = os.getenv(
+        "RAILGUARD_CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    )
+    return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+
+
 @lru_cache(maxsize=8)
 def _load_predictor(bundle_path: str) -> RailGuardPredictor:
     return RailGuardPredictor.from_bundle(bundle_path)
@@ -199,7 +207,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
