@@ -1,0 +1,4 @@
+task: shm
+model: extra_trees
+shm: {time_column: null, stress_columns: auto, target_transform: log1p}
+

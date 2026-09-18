@@ -1,0 +1,2 @@
+"""RailGuard dashboard package."""
+
