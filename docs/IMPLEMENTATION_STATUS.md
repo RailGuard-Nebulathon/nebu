@@ -48,6 +48,7 @@ Legend: `[x]` implemented, `[~]` partial, `[ ]` not implemented.
 - [x] Tests, compile/import checks, no automatic training, ignored raw/generated artifacts.
 - [x] Template-driven writer, strict validator, flat ZIP packager, missing/duplicate ID checks.
 - [x] Demo/Real dashboard, uploads/downloads, four task views, reliability and health views.
+- [x] Responsive React operator app and FastAPI inference boundary for all four official upload/output workflows.
 - [x] README, architecture, data contracts, modelling, evaluation, submission, dashboard, assumptions and status docs.
 
 ## External/user actions that are intentionally not fabricated

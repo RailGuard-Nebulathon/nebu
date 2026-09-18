@@ -1,4 +1,4 @@
-.PHONY: install install-dev test lint format inspect manifest dashboard smoke clean
+.PHONY: install install-dev test lint format inspect manifest dashboard api web web-install smoke clean
 install:
 	pip install -e .
 install-dev:
@@ -17,6 +17,12 @@ sequences:
 	@echo "Run scripts/build_sequences.py per task with --raw-root and --output"
 dashboard:
 	streamlit run dashboard/app.py
+api:
+	uvicorn railguard_api.main:app --app-dir web/backend --reload
+web-install:
+	npm --prefix web/frontend install
+web:
+	npm --prefix web/frontend run dev
 smoke:
 	pytest -q tests/test_end_to_end_synthetic.py
 clean:

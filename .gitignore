@@ -21,3 +21,6 @@ outputs/submissions/**
 *.ckpt
 *.joblib
 *.pkl
+web/frontend/node_modules/
+web/frontend/dist/
+.DS_Store
