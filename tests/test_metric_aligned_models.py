@@ -4,6 +4,8 @@ import pandas as pd
 from railguard.features.shm import shm_features
 from railguard.models.acv import ACVRanker
 from railguard.models.classical import ClassicalRegressor
+from railguard.models.door import DoorEnsemble
+from railguard.models.serialization import load_classical_bundle, save_classical_bundle
 from railguard.training.competition import _mape_scale
 from railguard.types import SequenceSample
 
@@ -39,3 +41,18 @@ def test_shm_features_include_learnable_fatigue_exponents() -> None:
     assert all(np.isfinite(list(features.values())))
     assert "stress_0__fatigue_log_proxy_m8" in features
     assert features["stress_0__rainflow_cycle_count"] > 0
+
+
+def test_door_ensemble_round_trip_reproduces_probabilities(tmp_path) -> None:
+    rng = np.random.default_rng(42)
+    x = pd.DataFrame(rng.normal(size=(24, 4)), columns=list("abcd"))
+    y = np.asarray(["Normal"] * 12 + ["Abnormal resistance"] * 12)
+    model = DoorEnsemble(seed=42).fit(x, y)
+    expected = model.predict_proba(x)
+    save_classical_bundle(
+        tmp_path, model, {}, {"feature_names": list(x.columns)}, {"task": "door"}
+    )
+    loaded, metadata = load_classical_bundle(tmp_path)
+    assert metadata["task"] == "door"
+    assert loaded.classes_.tolist() == model.classes_.tolist()
+    assert np.allclose(loaded.predict_proba(x), expected)

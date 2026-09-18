@@ -1,4 +1,4 @@
-"""Metric-aligned training and cross-validation for the three low-data PS3 tasks."""
+"""Metric-aligned training and cross-validation for all four PS3 tasks."""
 
 from __future__ import annotations
 
@@ -12,13 +12,16 @@ from sklearn.model_selection import StratifiedKFold
 
 from railguard.data.adapters.acv import ACVAdapter
 from railguard.data.adapters.corrugation import CorrugationAdapter
+from railguard.data.adapters.door import DoorAdapter
 from railguard.data.adapters.shm import SHMAdapter
 from railguard.evaluation import classification_metrics, regression_metrics
 from railguard.features.acv import acv_candidate_features
 from railguard.features.corrugation import corrugation_features
+from railguard.features.door import door_feature_table
 from railguard.features.shm import shm_features
 from railguard.models.acv import ACVRanker, rank_candidates
 from railguard.models.classical import ClassicalClassifier, ClassicalRegressor
+from railguard.models.door import DoorEnsemble
 from railguard.models.serialization import save_classical_bundle
 
 IDENTIFIER_COLUMNS = {"sample_id", "case_id", "car_id", "target"}
@@ -68,6 +71,70 @@ def build_file_features(task: str, raw_root: Path) -> pd.DataFrame:
         if index % 20 == 0:
             print(f"{task}: extracted {index} files", flush=True)
     return pd.DataFrame(rows)
+
+
+def build_door_features(raw_root: Path) -> pd.DataFrame:
+    samples = list(DoorAdapter(raw_root / "Door").samples("train"))
+    frame = door_feature_table(samples)
+    frame.insert(0, "sample_id", [sample.sample_id for sample in samples])
+    frame.insert(1, "operation", [str(sample.metadata["operation"]) for sample in samples])
+    frame.insert(2, "target", [str(sample.target) for sample in samples])
+    return frame
+
+
+def train_door(
+    raw_root: Path, output_dir: Path, cache_dir: Path | None, folds: int = 5, seed: int = 42
+) -> dict[str, Any]:
+    """Cross-validate and persist the exact ensemble used for Door inference."""
+    cache = cache_dir / "door_features.parquet" if cache_dir else None
+    frame = _cache_frame(cache, lambda: build_door_features(raw_root))
+    feature_columns = [
+        column for column in frame if column not in IDENTIFIER_COLUMNS | {"operation"}
+    ]
+    x = frame[feature_columns]
+    y = frame["target"].astype(str).to_numpy()
+    operations = frame["operation"].astype(str).to_numpy()
+    strata = np.char.add(y, np.char.add("__", operations))
+    splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
+    oof = np.empty(len(y), dtype=object)
+    probabilities = np.zeros((len(y), len(np.unique(y))), dtype=float)
+    fold_scores = []
+    classes: list[str] | None = None
+    for train_index, validation_index in splitter.split(x, strata):
+        model = DoorEnsemble(seed=seed).fit(x.iloc[train_index], y[train_index])
+        prediction = model.predict(x.iloc[validation_index])
+        fold_probability = model.predict_proba(x.iloc[validation_index])
+        oof[validation_index] = prediction
+        probabilities[validation_index] = fold_probability
+        classes = [str(label) for label in model.classes_]
+        fold_scores.append(classification_metrics(y[validation_index], prediction)["macro_f1"])
+    metrics = classification_metrics(y, oof, probabilities, classes)
+    final = DoorEnsemble(seed=seed).fit(x, y)
+    save_classical_bundle(
+        output_dir,
+        final,
+        {
+            "selection": "stratified_operation_status_cv_macro_f1",
+            "folds": folds,
+            "probability_ensemble": "uniform_mean",
+        },
+        {"feature_names": feature_columns},
+        {"task": "door", "cv_primary_metric": metrics["macro_f1"]},
+    )
+    report = {
+        "task": "door",
+        "selected": {
+            "model": "door_probability_ensemble",
+            "members": [model.name for model in final.models],
+            "macro_f1": metrics["macro_f1"],
+            "fold_macro_f1": fold_scores,
+        },
+        "metrics": metrics,
+        "class_counts": frame["target"].value_counts().to_dict(),
+        "operation_counts": frame["operation"].value_counts().to_dict(),
+    }
+    _write_report(output_dir / "cv_report.json", report)
+    return report
 
 
 def train_acv(

@@ -49,7 +49,7 @@ Legend: `[x]` implemented, `[~]` partial, `[ ]` not implemented.
 - [x] Template-driven writer, strict validator, flat ZIP packager, missing/duplicate ID checks.
 - [x] Demo/Real dashboard, uploads/downloads, four task views, reliability and health views.
 - [x] Responsive React operator app and FastAPI inference boundary for all four official upload/output workflows.
-- [x] Metric-aligned ACV leave-one-case-out ranker, speed-aware Rail model selection, and full-signal SHM fatigue regression.
+- [x] Reproducible Door ensemble bundle, metric-aligned ACV leave-one-case-out ranker, speed-aware Rail model selection, and full-signal SHM fatigue regression.
 - [x] README, architecture, data contracts, modelling, evaluation, submission, dashboard, assumptions and status docs.
 
 ## External/user actions that are intentionally not fabricated
