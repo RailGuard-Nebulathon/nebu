@@ -61,6 +61,7 @@ Legend: `[x]` implemented, `[~]` partial, `[ ]` not implemented.
 
 ## Post-acceptance hardening
 
+- [x] Cloud Build configuration builds the FastAPI container from the repository root and publishes it to the Singapore `railguard` Artifact Registry repository.
 - [x] FastAPI CORS origins are configurable through `RAILGUARD_CORS_ORIGINS`, with localhost defaults retained for local development and deployment parsing covered by a focused test.
 - [x] ACV deep-sequence construction now canonicalizes the two supplied vendor schemas, encodes categorical operating states, records source-column/category metadata, appends per-signal availability masks, and masks empty template-car blocks instead of requiring an impossible exact numeric-column intersection.
 - [x] `better-results` now presents a playbook-backed quick decision with Healthy/Monitor/Inspect Soon/High Priority status support, reported component location, plain-language finding, urgency, next checks and Reliable/Review advised/Insufficient evidence states.

@@ -1,0 +1,12 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - web/backend/Dockerfile
+      - -t
+      - asia-southeast1-docker.pkg.dev/$PROJECT_ID/railguard/railguard-api:latest
+      - .
+
+images:
+  - asia-southeast1-docker.pkg.dev/$PROJECT_ID/railguard/railguard-api:latest
