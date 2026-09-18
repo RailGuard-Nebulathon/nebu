@@ -242,6 +242,68 @@ Open `http://localhost:5173`. Configure bundle paths with the `RAILGUARD_*_BUNDL
 variables documented in [`web/README.md`](web/README.md), or run both services with
 `docker compose up --build`.
 
+### Operator decision UI
+
+The result screen translates task-specific model output into two levels of information: a fast
+decision summary for operators and progressively disclosed evidence for engineers. It does not
+turn a prediction into an automatic maintenance instruction.
+
+The default **Quick decision** view displays:
+
+- **Status:** `Healthy`, `Monitor`, `Inspect Soon`, or `High Priority`;
+- **Location:** the reported car, door, rail side, segment, or structural component, with an
+  explicit generic fallback when the input does not provide an identifier;
+- **Finding:** a plain-language description of the model output;
+- **Urgency:** when the configured playbook says the finding should be reviewed;
+- **Next checks:** a non-authoritative checklist from the configured playbook; and
+- **Reliability:** `Reliable`, `Review advised`, or `Insufficient evidence`, together with the
+  reason for that label.
+
+Every checklist is labelled **Decision support** in the interface. Checklists come from the typed
+`DecisionPlaybook` in `web/frontend/src/decision.ts`, not from free-form model output. The bundled
+values are conservative demonstration defaults and must be reviewed or replaced with an
+organisation-approved playbook before operational use. A custom playbook can be passed explicitly:
+
+```ts
+import {
+  buildDecision,
+  DEFAULT_DECISION_PLAYBOOK,
+  type DecisionPlaybook,
+} from "./decision";
+
+const approvedPlaybook: DecisionPlaybook = structuredClone(DEFAULT_DECISION_PLAYBOOK);
+approvedPlaybook.door.abnormal = {
+  status: "High Priority",
+  urgency: "Apply the approved depot response procedure now",
+  checks: ["Use the approved abnormal-resistance checklist."],
+};
+
+const decision = buildDecision(prediction, approvedPlaybook);
+```
+
+The remaining result views provide progressive disclosure:
+
+1. **Why this result?** gives two or three plain-language evidence statements and explains the
+   reliability label without claiming a physical cause.
+2. **Technical evidence** shows the task-specific cycle table, car ranking, class probabilities,
+   uncertainty, or damage interval available in the API response.
+3. **Learn** defines the relevant parameter, explains how to read its chart, distinguishes model
+   influence from causation, and only refers to normal ranges when an approved source supplies
+   them.
+
+ACV results additionally include a train-car inspection map and top-two score margin. ACV bars use
+a fixed 0–1 scale so a weak leading candidate is not visually inflated. SHM damage is shown as a
+raw estimate and interval rather than an invented percentage or pass/fail threshold. Demonstration
+results are always labelled `Insufficient evidence` and cannot support operational action.
+
+Run the UI regression gates with:
+
+```bash
+npm --prefix web/frontend test
+npm --prefix web/frontend run build
+npm --prefix web/frontend run lint
+```
+
 ## Legacy Streamlit dashboard
 
 ```bash
