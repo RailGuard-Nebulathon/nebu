@@ -7,7 +7,6 @@ import {
   Check,
   ChevronRight,
   CircleHelp,
-  CircleDot,
   DoorOpen,
   Eye,
   Fan,
@@ -16,7 +15,7 @@ import {
   History,
   ListChecks,
   Menu,
-  ShieldCheck,
+  Plus,
   SlidersHorizontal,
   TrainFront,
   UploadCloud,
@@ -60,20 +59,14 @@ function downloadText(filename: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-function TopBar({ menuOpen, onToggle, connected }: { menuOpen: boolean; onToggle: () => void; connected: boolean }) {
+function TopBar({ menuOpen, onToggle }: { menuOpen: boolean; onToggle: () => void }) {
   return (
     <header className="topbar">
       <button className="mobile-menu" onClick={onToggle} aria-label={menuOpen ? "Close menu" : "Open menu"}>
         {menuOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
       <div className="brand-mark"><TrainFront size={20} strokeWidth={1.8} /></div>
-      <div className="brand-copy"><strong>RailGuard</strong><span>Condition Intelligence</span></div>
-      <div className="topbar-divider" />
-      <span className="workspace-label">Analysis workspace</span>
-      <div className="topbar-actions">
-        <span className="system-pill"><span className={`live-dot ${connected ? "" : "offline"}`} /> Analysis service {connected ? "ready" : "unavailable"}</span>
-        <span className="event-label">NebulaX 2026</span>
-      </div>
+      <div className="brand-copy"><strong>RailGuard</strong></div>
     </header>
   );
 }
@@ -94,9 +87,6 @@ function Sidebar({ tasks, selected, onSelect, open, page, onPage }: { tasks: Tas
           </button>
         );
       })}
-      <div className="sidebar-bottom">
-        <p>RailGuard v1.0<br />Decision support only</p>
-      </div>
     </aside>
   );
 }
@@ -140,7 +130,7 @@ function UploadPanel({ task, file, onFile, onRun, running, busy, metadataLoading
   return (
     <section className="upload-card">
       <div className="card-heading">
-        <div><span className="eyebrow">Input</span><h2>Upload sensor data</h2><p>RailGuard reads available asset, component, and recording-time information automatically.</p></div>
+        <div><span className="eyebrow">Input</span><h2>Upload sensor data</h2></div>
         <div className="mode-switch" aria-label="Analysis mode"><button className={mode === "real" ? "active" : ""} onClick={() => onMode("real")}>Real model</button><button className={mode === "demo" ? "active" : ""} onClick={() => onMode("demo")}>Demo</button></div>
       </div>
       {!file ? (
@@ -169,20 +159,20 @@ function UploadPanel({ task, file, onFile, onRun, running, busy, metadataLoading
       )}
       {file && <div className="detected-metadata">
         <div className="detected-heading">
-          <div><span className="eyebrow">Detected asset information</span><strong>{metadataLoading ? "Reading file metadata…" : "Review before analysis"}</strong></div>
-          {!metadataLoading && suggestion && <span className="detected-ready"><Check size={14} /> Automatically recorded</span>}
+          <strong>{metadataLoading ? "Reading file details…" : "Detected details"}</strong>
+          {!metadataLoading && suggestion && <span className="detected-ready"><Check size={14} /> Auto-filled</span>}
         </div>
         <div className="metadata-grid upload-metadata">
           <label>Asset ID <small>{suggestion && sourceLabel(suggestion.asset_source)}</small><input value={metadata.asset_id} onChange={(event) => onMetadata({ ...metadata, asset_id: event.target.value })} placeholder={metadataLoading ? "Detecting…" : "Required"} disabled={metadataLoading} required /></label>
           <label>Measurement date and time <small>{suggestion && sourceLabel(suggestion.measurement_time_source)}</small><input type="datetime-local" value={metadata.measurement_time} onChange={(event) => onMetadata({ ...metadata, measurement_time: event.target.value })} disabled={metadataLoading} required /></label>
           <label>Component or location <small>{suggestion && sourceLabel(suggestion.component_source)}</small><input value={metadata.component_info} onChange={(event) => onMetadata({ ...metadata, component_info: event.target.value })} placeholder={metadataLoading ? "Detecting…" : "Optional"} disabled={metadataLoading} /></label>
         </div>
-        {!metadataLoading && suggestion?.warnings.map((warning) => <p className="metadata-warning" key={warning}><AlertTriangle size={14} />{warning} You can correct it here before saving.</p>)}
+        {!metadataLoading && suggestion?.warnings.map((warning) => <p className="metadata-warning" key={warning}><AlertTriangle size={14} />{warning}</p>)}
       </div>}
       <div className="upload-footer">
         <div className="bundle-status">
           <span className={`status-icon ${task.bundle_available ? "ready" : "unavailable"}`}>{task.bundle_available ? <Check size={14} /> : <AlertTriangle size={14} />}</span>
-          <div><strong>{mode === "demo" ? "Demonstration mode" : task.bundle_available ? "Analysis ready" : "Analysis unavailable"}</strong><span>{mode === "demo" ? "The result will be simulated and marked Demo in history." : task.bundle_available ? "The approved model is available." : "This subsystem has not been configured yet."}</span></div>
+          <div><strong>{mode === "demo" ? "Demo mode" : task.bundle_available ? "Ready" : "Model unavailable"}</strong></div>
         </div>
         <button className="primary-button" disabled={!file || busy || metadataLoading || !metadata.asset_id.trim() || !metadata.measurement_time || (mode === "real" && !task.bundle_available)} onClick={onRun}>
           {running ? <><span className="spinner" /> Analysing</> : <>Run analysis <ChevronRight size={17} /></>}
@@ -292,7 +282,6 @@ function QuickDecision({ result, decision }: { result: PredictionResponse; decis
         <h4><ListChecks size={17} /> Next checks</h4>
         <ol>{decision.nextChecks.map((check) => <li key={check}>{check}</li>)}</ol>
       </div>
-      <div className="playbook-notice"><ShieldCheck size={17} /><div><strong>Decision support · {decision.playbookLabel}</strong><span>Suggested checks come from the configured playbook, not directly from the model. Follow approved local procedures.</span></div></div>
     </section>
   );
 }
@@ -350,7 +339,7 @@ export function ResultPanel({ result, onReset }: { result: PredictionResponse; o
     <section className="results-card">
       <div className="results-header">
         <div><span className="eyebrow">Analysis complete</span><h2>{result.task_name}</h2><p>{result.source_file}</p></div>
-        <div className="results-actions"><span className={`mode-badge ${result.mode}`}>{result.mode === "real" ? "Analysis completed" : "Demonstration result"}</span><button className="download-button" onClick={() => downloadText(result.output_filename, result.csv_text)}><ArrowDownToLine size={17} /> Export data</button></div>
+        <div className="results-actions"><span className={`mode-badge ${result.mode}`}>{result.mode === "real" ? "Analysis completed" : "Demonstration result"}</span><button className="new-analysis-button" onClick={onReset}><Plus size={17} /> Start another analysis</button><button className="download-button" onClick={() => downloadText(result.output_filename, result.csv_text)}><ArrowDownToLine size={17} /> Export data</button></div>
       </div>
       {result.mode === "demo" && <div className="demo-banner"><AlertTriangle size={18} /><div><strong>Demonstration mode</strong><span>This output is simulated and cannot support an operational decision or competition submission.</span></div></div>}
       <nav className="result-navigation" aria-label="Result detail level">
@@ -360,7 +349,6 @@ export function ResultPanel({ result, onReset }: { result: PredictionResponse; o
       {view === "why" && <WhyResult decision={decision} />}
       {view === "technical" && <TechnicalEvidence result={result} />}
       {view === "learn" && <LearnView task={result.task} />}
-      <div className="results-footer"><div><CircleDot size={15} /><span>The result file has been checked and is ready to download.</span></div><button className="text-button" onClick={onReset}>Start another analysis</button></div>
     </section>
   );
 }
@@ -389,7 +377,6 @@ export default function App() {
   const [runningTask, setRunningTask] = useState<TaskId | null>(null);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [apiConnected, setApiConnected] = useState(false);
   const [retryAction, setRetryAction] = useState<"tasks" | "analysis" | null>(null);
   const [page, setPage] = useState<"analysis" | "history">("analysis");
   const [historyRefresh, setHistoryRefresh] = useState(0);
@@ -398,9 +385,8 @@ export default function App() {
     setError("");
     setRetryAction(null);
     fetchTasks()
-      .then((nextTasks) => { setTasks(nextTasks); setApiConnected(true); })
+      .then(setTasks)
       .catch(() => {
-        setApiConnected(false);
         setRetryAction("tasks");
         setError("The analysis service is temporarily unavailable. Try again in a few minutes or contact the RailGuard administrator.");
       });
@@ -408,9 +394,8 @@ export default function App() {
 
   useEffect(() => {
     void fetchTasks()
-      .then((nextTasks) => { setTasks(nextTasks); setApiConnected(true); })
+      .then(setTasks)
       .catch(() => {
-        setApiConnected(false);
         setRetryAction("tasks");
         setError("The analysis service is temporarily unavailable. Try again in a few minutes or contact the RailGuard administrator.");
       });
@@ -450,7 +435,6 @@ export default function App() {
         component_info: detected.component_info,
         measurement_time: metadataDateTime(detected.measurement_time),
       } }));
-      setApiConnected(true);
     } catch (caught) {
       if (requestId !== metadataRequestIds.current[taskId]) return;
       setError(caught instanceof Error ? caught.message : "Asset information could not be read from this file. Check the file format and try again.");
@@ -467,7 +451,6 @@ export default function App() {
       setResults((current) => ({ ...current, [taskId]: nextResult }));
       setSavedRecords((current) => ({ ...current, [taskId]: null }));
       setFiles((current) => ({ ...current, [taskId]: null }));
-      setApiConnected(true);
     }
     catch (caught) {
       setRetryAction("analysis");
@@ -491,19 +474,16 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <TopBar menuOpen={menuOpen} onToggle={() => setMenuOpen((value) => !value)} connected={apiConnected} />
+      <TopBar menuOpen={menuOpen} onToggle={() => setMenuOpen((value) => !value)} />
       <Sidebar tasks={tasks} selected={selected} onSelect={selectTask} open={menuOpen} page={page} onPage={(next) => { setPage(next); setMenuOpen(false); }} />
       <main className="main-content">
-        {page === "history" ? <HistoryPage refreshKey={historyRefresh} /> : <><section className="intro">
-          <div><span className="eyebrow">Condition monitoring console</span><h1>Turn sensor data into<br /><em>maintenance decisions.</em></h1><p>Review rail telemetry, understand the model evidence, and translate each finding into a clear next check.</p></div>
-          <div className="coverage-stat"><span>SUBSYSTEM COVERAGE</span><strong>04<small>/04</small></strong><div><span className="coverage-line" /><p>Door · ACV · Rail · SHM</p></div></div>
+        {page === "history" ? <HistoryPage refreshKey={historyRefresh} /> : <><section className="intro compact-intro">
+          <div><h1>Condition monitoring</h1></div>
         </section>
-        <div className="workflow-strip"><span className="workflow-active"><b>1</b> Select subsystem</span><i /><span className={file ? "workflow-active" : ""}><b>2</b> Upload data</span><i /><span className={taskMetadata.asset_id.trim() ? "workflow-active" : ""}><b>3</b> Confirm detected context</span><i /><span className={result ? "workflow-active" : ""}><b>4</b> Review and save</span></div>
         <TaskSelector tasks={tasks} selected={selected} onSelect={selectTask} />
         {error && <div className="error-banner" role="alert"><AlertTriangle size={18} /><span>{error}</span>{retryAction && <button className="retry-button" onClick={retry}>Try again</button>}<button className="dismiss-button" onClick={() => { setError(""); setRetryAction(null); }} aria-label="Dismiss message"><X size={16} /></button></div>}
         {!result ? <UploadPanel task={task} file={file} onFile={(next) => { void selectFile(next); }} onRun={analyse} running={runningTask === selected} busy={runningTask !== null} metadataLoading={Boolean(metadataLoading[selected])} suggestion={metadataSuggestion} metadata={taskMetadata} onMetadata={(next) => setMetadata((current) => ({ ...current, [selected]: next }))} mode={mode} onMode={(next) => setModes((current) => ({ ...current, [selected]: next }))} /> : <><ResultPanel result={result} onReset={resetSelectedAnalysis} /><SaveAnalysisPanel result={result} metadata={taskMetadata} onMetadata={(next) => setMetadata((current) => ({ ...current, [selected]: next }))} saved={savedRecord} onSaved={(record) => { setSavedRecords((current) => ({ ...current, [selected]: record })); setHistoryRefresh((value) => value + 1); }} onOpenHistory={() => setPage("history")} /></>}
         </>}
-        <footer><span>RailGuard AI</span><p>Evidence for operators. Predictions for maintenance teams.</p><p>Not an approved maintenance rule.</p></footer>
       </main>
     </div>
   );
