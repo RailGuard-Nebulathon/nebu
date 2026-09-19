@@ -1,0 +1,4 @@
+task: acv
+model: extra_trees
+acv: {layout: prefixed_columns, car_pattern: '^Car (?P<car>\\d{2}) - (?P<parameter>.+)$'}
+
