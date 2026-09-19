@@ -89,7 +89,6 @@ function Sidebar({ tasks, selected, onSelect, open }: { tasks: TaskDescriptor[];
         );
       })}
       <div className="sidebar-bottom">
-        <div className="security-card"><ShieldCheck size={18} /><div><strong>Local inference</strong><span>Files stay on this machine</span></div></div>
         <p>RailGuard v1.0<br />Decision support only</p>
       </div>
     </aside>

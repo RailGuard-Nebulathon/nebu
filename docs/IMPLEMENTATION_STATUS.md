@@ -61,6 +61,7 @@ Legend: `[x]` implemented, `[~]` partial, `[ ]` not implemented.
 
 ## Post-acceptance hardening
 
+- [x] Removed the misleading local-inference claim from the cloud-backed React interface; the sidebar now retains only the neutral version and decision-support notice.
 - [x] Cloud Build configuration compiles the React frontend against the deployed Singapore API URL, publishes the Nginx image to Artifact Registry, and supports the dedicated build service account through Cloud Logging.
 - [x] Cloud Build configuration builds the FastAPI container from the repository root, publishes it to the Singapore `railguard` Artifact Registry repository, and supports a dedicated build service account through Cloud Logging.
 - [x] FastAPI CORS origins are configurable through `RAILGUARD_CORS_ORIGINS`, with localhost defaults retained for local development and deployment parsing covered by a focused test.
