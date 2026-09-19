@@ -39,7 +39,6 @@ describe("ResultPanel progressive disclosure", () => {
 
     expect(screen.getByRole("heading", { name: /Car 03 is the first refrigerant-leak inspection candidate/i })).toBeInTheDocument();
     expect(screen.getByText("Insufficient evidence")).toBeInTheDocument();
-    expect(screen.getByText(/Suggested checks come from the configured playbook/i)).toBeInTheDocument();
     expect(screen.getByLabelText("Train car inspection map")).toBeInTheDocument();
   });
 

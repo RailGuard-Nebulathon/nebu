@@ -15,7 +15,6 @@ import {
   Gauge,
   ListChecks,
   Menu,
-  ShieldCheck,
   SlidersHorizontal,
   TrainFront,
   UploadCloud,
@@ -63,9 +62,7 @@ function TopBar({ menuOpen, onToggle, connected }: { menuOpen: boolean; onToggle
         {menuOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
       <div className="brand-mark"><TrainFront size={20} strokeWidth={1.8} /></div>
-      <div className="brand-copy"><strong>RailGuard</strong><span>Condition Intelligence</span></div>
-      <div className="topbar-divider" />
-      <span className="workspace-label">Analysis workspace</span>
+      <div className="brand-copy"><strong>RailGuard</strong></div>
       <div className="topbar-actions">
         <span className="system-pill"><span className={`live-dot ${connected ? "" : "offline"}`} /> Analysis service {connected ? "ready" : "unavailable"}</span>
         <span className="event-label">NebulaX 2026</span>
@@ -89,9 +86,6 @@ function Sidebar({ tasks, selected, onSelect, open }: { tasks: TaskDescriptor[];
           </button>
         );
       })}
-      <div className="sidebar-bottom">
-        <p>RailGuard v1.0<br />Decision support only</p>
-      </div>
     </aside>
   );
 }
@@ -268,7 +262,6 @@ function QuickDecision({ result, decision }: { result: PredictionResponse; decis
         <h4><ListChecks size={17} /> Next checks</h4>
         <ol>{decision.nextChecks.map((check) => <li key={check}>{check}</li>)}</ol>
       </div>
-      <div className="playbook-notice"><ShieldCheck size={17} /><div><strong>Decision support · {decision.playbookLabel}</strong><span>Suggested checks come from the configured playbook, not directly from the model. Follow approved local procedures.</span></div></div>
     </section>
   );
 }
@@ -425,14 +418,12 @@ export default function App() {
       <Sidebar tasks={tasks} selected={selected} onSelect={selectTask} open={menuOpen} />
       <main className="main-content">
         <section className="intro">
-          <div><span className="eyebrow">Condition monitoring console</span><h1>Turn sensor data into<br /><em>maintenance decisions.</em></h1><p>Review rail telemetry, understand the model evidence, and translate each finding into a clear next check.</p></div>
-          <div className="coverage-stat"><span>SUBSYSTEM COVERAGE</span><strong>04<small>/04</small></strong><div><span className="coverage-line" /><p>Door · ACV · Rail · SHM</p></div></div>
+          <div><span className="eyebrow">Condition monitoring console</span><h1>Turn sensor data into<br /><em>maintenance decisions.</em></h1></div>
         </section>
         <div className="workflow-strip"><span className="workflow-active"><b>1</b> Select subsystem</span><i /><span className={file ? "workflow-active" : ""}><b>2</b> Upload data</span><i /><span className={result ? "workflow-active" : ""}><b>3</b> Review decision</span><i /><span className={result ? "workflow-active" : ""}><b>4</b> Inspect evidence</span></div>
         <TaskSelector tasks={tasks} selected={selected} onSelect={selectTask} />
         {error && <div className="error-banner" role="alert"><AlertTriangle size={18} /><span>{error}</span>{retryAction && <button className="retry-button" onClick={retry}>Try again</button>}<button className="dismiss-button" onClick={() => { setError(""); setRetryAction(null); }} aria-label="Dismiss message"><X size={16} /></button></div>}
         {!result ? <UploadPanel task={task} file={file} onFile={selectFile} onRun={analyse} running={runningTask === selected} busy={runningTask !== null} /> : <ResultPanel result={result} onReset={resetSelectedAnalysis} />}
-        <footer><span>RailGuard AI</span><p>Evidence for operators. Predictions for maintenance teams.</p><p>Not an approved maintenance rule.</p></footer>
       </main>
     </div>
   );
