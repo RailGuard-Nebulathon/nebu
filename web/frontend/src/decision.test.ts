@@ -9,6 +9,8 @@ function result(task: TaskId, overrides: Partial<PredictionResponse> = {}): Pred
     task_name: task,
     mode: "real",
     source_file: "sample.csv",
+    input_sha256: "test-hash",
+    model_version: "test-model:v1",
     output_filename: "prediction.csv",
     rows: [],
     summary: {},

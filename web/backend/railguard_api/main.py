@@ -5,22 +5,27 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import os
 import tempfile
 from dataclasses import asdict
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from railguard.constants import CORRUGATION_OFFICIAL, DOOR_OFFICIAL, TASKS
 from railguard.inference import RailGuardPredictor
 from railguard.submission.schemas import OFFICIAL_COLUMNS, OFFICIAL_FILES
 from railguard.submission.validator import validate_prediction_frame
+
+from railguard_api.history import create_analysis, get_analysis, list_analyses, update_metadata
+from railguard_api.metadata import MetadataSuggestion, extract_metadata
 
 TaskName = Literal["door", "acv", "corrugation", "shm"]
 RunMode = Literal["auto", "real", "demo"]
@@ -48,12 +53,36 @@ class PredictionResponse(BaseModel):
     task_name: str
     mode: Literal["real", "demo"]
     source_file: str
+    input_sha256: str
+    model_version: str
     output_filename: str
     rows: list[dict[str, Any]]
     summary: dict[str, Any]
     visual: dict[str, Any]
     csv_text: str
     notices: list[str]
+
+
+class AnalysisMetadata(BaseModel):
+    asset_id: str = Field(min_length=1, max_length=120)
+    component_info: str = Field(default="", max_length=250)
+    measurement_time: datetime
+
+    @field_validator("asset_id", "component_info")
+    @classmethod
+    def clean_text(cls, value: str, info: ValidationInfo) -> str:
+        cleaned = value.strip()
+        if info.field_name == "asset_id" and not cleaned:
+            raise ValueError("Asset ID cannot be blank")
+        return cleaned
+
+
+class HistoryCreate(AnalysisMetadata):
+    result: PredictionResponse
+
+
+class HistoryMetadataUpdate(AnalysisMetadata):
+    pass
 
 
 TASK_METADATA: dict[str, dict[str, str]] = {
@@ -91,6 +120,16 @@ def _bundle_path(task: str) -> Path | None:
 def _bundle_available(task: str) -> bool:
     path = _bundle_path(task)
     return bool(path and path.is_dir() and (path / "model.joblib").is_file())
+
+
+@lru_cache(maxsize=8)
+def _bundle_version(bundle_path: str) -> str:
+    path = Path(bundle_path)
+    metadata = json.loads((path / "metadata.json").read_text(encoding="utf-8"))
+    digest = hashlib.sha256((path / "model.joblib").read_bytes()).hexdigest()[:12]
+    name = str(metadata.get("model") or metadata.get("kind") or path.name)
+    version = str(metadata.get("checkpoint_version", 1))
+    return f"{name}:v{version}:{digest}"
 
 
 def _demo_allowed() -> bool:
@@ -222,7 +261,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins(),
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -235,6 +274,28 @@ def health() -> dict[str, Any]:
 @app.get("/api/tasks", response_model=list[TaskDescriptor])
 def tasks() -> list[TaskDescriptor]:
     return _tasks()
+
+
+@app.post("/api/metadata/{task}", response_model=MetadataSuggestion)
+async def metadata(
+    task: TaskName,
+    file: Annotated[UploadFile, File(...)],
+    file_modified_ms: Annotated[float | None, Query(ge=0)] = None,
+) -> MetadataSuggestion:
+    filename = Path(file.filename or "upload").name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ALLOWED_SUFFIXES[task]:
+        expected = ", ".join(sorted(ALLOWED_SUFFIXES[task]))
+        raise HTTPException(415, f"{TASK_METADATA[task]['short_name']} expects {expected} files")
+    payload = await file.read(MAX_UPLOAD_BYTES + 1)
+    if not payload:
+        raise HTTPException(400, "The uploaded file is empty")
+    if len(payload) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "The upload exceeds the 100 MB limit")
+    try:
+        return extract_metadata(task, payload, filename, file_modified_ms)
+    except (ValueError, KeyError, OSError) as exc:
+        raise HTTPException(422, f"Metadata extraction failed: {exc}") from exc
 
 
 @app.post("/api/predict/{task}", response_model=PredictionResponse)
@@ -274,12 +335,14 @@ async def predict(
         except Exception as exc:
             raise HTTPException(422, f"Inference failed: {exc}") from exc
         notices.append("Generated with a configured trusted model bundle.")
+        model_version = _bundle_version(str(bundle))
     else:
         rows, summary, visual = _demo_result(task, filename)
         notices.extend([
-            "Demonstration result only. No trained model bundle was configured.",
+            "Demonstration result only. A trained model was not used for this result.",
             "Do not include this output in a competition submission.",
         ])
+        model_version = "demo-v1"
 
     import pandas as pd
 
@@ -289,6 +352,8 @@ async def predict(
         task_name=TASK_METADATA[task]["name"],
         mode=selected_mode,
         source_file=filename,
+        input_sha256=hashlib.sha256(payload).hexdigest(),
+        model_version=model_version,
         output_filename=OFFICIAL_FILES[task],
         rows=rows,
         summary=summary,
@@ -296,6 +361,56 @@ async def predict(
         csv_text=_csv_text(task, rows),
         notices=notices,
     )
+
+
+@app.post("/api/history", status_code=status.HTTP_201_CREATED)
+def save_history(payload: HistoryCreate) -> dict[str, Any]:
+    return create_analysis(
+        asset_id=payload.asset_id,
+        component_info=payload.component_info,
+        measurement_time=payload.measurement_time.isoformat(),
+        result=payload.result.model_dump(mode="json"),
+    )
+
+
+@app.get("/api/history")
+def history(
+    asset: Annotated[str | None, Query(max_length=120)] = None,
+    task: Annotated[TaskName | None, Query()] = None,
+    date_from: Annotated[datetime | None, Query()] = None,
+    date_to: Annotated[datetime | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 500,
+) -> list[dict[str, Any]]:
+    return list_analyses(
+        asset=asset.strip() if asset else None,
+        task=task,
+        date_from=date_from.isoformat() if date_from else None,
+        date_to=date_to.isoformat() if date_to else None,
+        limit=limit,
+    )
+
+
+@app.get("/api/history/{analysis_id}")
+def history_detail(analysis_id: str) -> dict[str, Any]:
+    try:
+        return get_analysis(analysis_id)
+    except KeyError as exc:
+        raise HTTPException(404, "Analysis history record was not found") from exc
+
+
+@app.patch("/api/history/{analysis_id}/metadata")
+def edit_history_metadata(
+    analysis_id: str, payload: HistoryMetadataUpdate
+) -> dict[str, Any]:
+    try:
+        return update_metadata(
+            analysis_id,
+            asset_id=payload.asset_id,
+            component_info=payload.component_info,
+            measurement_time=payload.measurement_time.isoformat(),
+        )
+    except KeyError as exc:
+        raise HTTPException(404, "Analysis history record was not found") from exc
 
 
 @app.get("/", response_class=PlainTextResponse)

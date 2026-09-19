@@ -232,6 +232,17 @@ predictor, renders task-specific results, and downloads the exact official CSV s
 bundle configured it can use an explicitly labelled demonstration fallback that cannot be
 mistaken for a submission result.
 
+The local operator workflow extracts available asset ID, component coverage, and measurement time
+as soon as a file is selected, then lets the operator correct them before analysis. ACV metadata is
+read directly from the workbook. Door has an embedded timestamp but no train ID; Rail and SHM have
+neither, so their filename and file-modification time are used as visibly labelled fallbacks rather
+than fabricating a train number. A confirmed result can be saved to `data/railguard.db`. SQLite
+history stores result data, model version, mode,
+component/location metadata, and the upload's SHA-256 hash without duplicating raw sensor files.
+Predictions are immutable after saving; asset metadata remains editable. The History workspace
+provides filters, asset summaries, task-specific trends, chronological records, and saved-result
+inspection. Demo records are supported but remain explicitly labelled.
+
 ```bash
 pip install -e ".[api]"
 npm --prefix web/frontend install

@@ -10,6 +10,8 @@ const acvResult: PredictionResponse = {
   task_name: "ACV leak localisation",
   mode: "demo",
   source_file: "case.xlsx",
+  input_sha256: "abc123",
+  model_version: "demo-v1",
   output_filename: "acv_predictions.csv",
   rows: [{ file_id: "case.xlsx", ranked_cars: "03|06|01" }],
   summary: { top_car: "03", cars_ranked: 3 },
@@ -23,6 +25,8 @@ const doorResult: PredictionResponse = {
   task_name: "Door diagnostics",
   mode: "real",
   source_file: "door.csv",
+  input_sha256: "def456",
+  model_version: "door:v1:test",
   output_filename: "door_predictions.csv",
   rows: [{ start_time: "start-1", end_time: "end-1", prediction: "Normal" }],
   summary: { cycles: 1, abnormal_cycles: 0, confidence: 0.913 },
@@ -94,7 +98,16 @@ describe("subsystem workspaces", () => {
     ];
     vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL | Request) => {
       const url = String(input);
-      const body = url.endsWith("/api/tasks") ? tasks : productionAcvResult;
+      const metadata = {
+        asset_id: "Train 620",
+        component_info: "ACV · Cars 01–08 · Model A",
+        measurement_time: "2023-05-18T00:00:00",
+        asset_source: "embedded",
+        component_source: "embedded",
+        measurement_time_source: "embedded",
+        warnings: [],
+      };
+      const body = url.endsWith("/api/tasks") ? tasks : url.includes("/api/metadata/") ? metadata : productionAcvResult;
       return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
     }));
     const user = userEvent.setup();
@@ -104,6 +117,7 @@ describe("subsystem workspaces", () => {
     const upload = document.querySelector<HTMLInputElement>('input[type="file"]');
     expect(upload).not.toBeNull();
     await user.upload(upload!, new File(["workbook"], "case.xlsx"));
+    await screen.findByDisplayValue("Train 620");
     await user.click(screen.getByRole("button", { name: "Run analysis" }));
     await screen.findByRole("heading", { name: /Car 03 is the first refrigerant-leak inspection candidate/i });
 

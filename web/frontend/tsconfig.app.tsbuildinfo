@@ -1,1 +1,1 @@
-{"root":["./src/app.test.tsx","./src/app.tsx","./src/api.ts","./src/decision.test.ts","./src/decision.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/test/setup.ts"],"version":"6.0.3"}
+{"root":["./src/app.test.tsx","./src/app.tsx","./src/historypage.tsx","./src/saveanalysispanel.tsx","./src/api.test.ts","./src/api.ts","./src/decision.test.ts","./src/decision.ts","./src/history.test.ts","./src/history.ts","./src/main.tsx","./src/types.ts","./src/upload.ts","./src/vite-env.d.ts","./src/test/setup.ts"],"version":"6.0.3"}

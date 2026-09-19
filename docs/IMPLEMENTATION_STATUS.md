@@ -63,7 +63,10 @@ Legend: `[x]` implemented, `[~]` partial, `[ ]` not implemented.
 
 - [x] React analysis workspaces retain each subsystem's file or completed result while users move between categories; only Start another analysis clears the selected subsystem's work.
 - [x] Door real-inference responses retain per-cycle predicted-class confidence for technical review and use the lowest cycle confidence as a conservative reliability summary without changing the official competition CSV schema.
-- [x] Production React analysis now always requests an approved real model, disables unconfigured subsystems, uses plain operational copy, validates a 30 MB upload ceiling, provides actionable retry errors, and raises small interface typography for non-technical accessibility.
+- [x] React defaults to an approved real model, permits an explicitly selected and labelled demo mode, disables unavailable real analysis, validates a 30 MB upload ceiling, and provides actionable retry errors.
+- [x] Local SQLite history stores confirmed real or clearly marked demo analyses with asset context, source hash and model version; predictions are immutable while metadata remains editable.
+- [x] Operator history provides asset/task/date filters, asset summaries, Door/SHM numeric trends, ACV/Rail categorical trends, chronological records and complete saved-result inspection.
+- [x] Upload-time metadata extraction reads ACV train/model/time, Door time, and schema-derived component coverage; formats without an embedded train ID or timestamp use explicit, editable filename/file-modified fallbacks.
 - [x] Removed the misleading local-inference claim from the cloud-backed React interface; the sidebar now retains only the neutral version and decision-support notice.
 - [x] Cloud Build configuration compiles the React frontend against the deployed Singapore API URL, publishes the Nginx image to Artifact Registry, and supports the dedicated build service account through Cloud Logging.
 - [x] Cloud Build configuration builds the FastAPI container from the repository root, publishes it to the Singapore `railguard` Artifact Registry repository, and supports a dedicated build service account through Cloud Logging.
