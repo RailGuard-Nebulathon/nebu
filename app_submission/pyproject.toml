@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "railguard-ai"
+version = "0.1.0"
+description = "NebulaX PS3 train condition monitoring platform"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.24", "pandas>=2.0", "scipy>=1.10", "scikit-learn>=1.3",
+  "pyyaml>=6", "pydantic>=2", "joblib>=1.3", "matplotlib>=3.7",
+  "tqdm>=4.65", "openpyxl>=3.1", "pyarrow>=12"
+]
+
+[project.optional-dependencies]
+deep = ["torch>=2.1"]
+boosting = ["xgboost>=2", "lightgbm>=4", "catboost>=1.2"]
+explain = ["captum>=0.7", "PyWavelets>=1.5"]
+dashboard = ["streamlit>=1.32", "plotly>=5.18"]
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.12"]
+dev = ["pytest>=7.4", "pytest-cov>=4", "ruff>=0.4", "mypy>=1.8", "pre-commit>=3.6"]
+all = [
+  "torch>=2.1", "xgboost>=2", "lightgbm>=4", "catboost>=1.2", "captum>=0.7",
+  "PyWavelets>=1.5", "optuna>=3.5", "streamlit>=1.32", "plotly>=5.18",
+  "fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.12",
+  "pytest>=7.4", "pytest-cov>=4", "ruff>=0.4", "mypy>=1.8", "pre-commit>=3.6"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src", "."]
+markers = ["real_data: tests that inspect supplied raw data"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+ignore_missing_imports = true

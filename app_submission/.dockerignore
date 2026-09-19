@@ -1,0 +1,11 @@
+.env
+.git
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+web/frontend/node_modules
+web/frontend/dist
+outputs/predictions
+outputs/submissions
+data
+
