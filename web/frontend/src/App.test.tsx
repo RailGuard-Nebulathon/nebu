@@ -99,7 +99,7 @@ describe("subsystem workspaces", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await screen.findByText("Analysis service ready");
+    await screen.findByRole("button", { name: /ACV analysis/ });
     const upload = document.querySelector<HTMLInputElement>('input[type="file"]');
     expect(upload).not.toBeNull();
     await user.upload(upload!, new File(["workbook"], "case.xlsx"));

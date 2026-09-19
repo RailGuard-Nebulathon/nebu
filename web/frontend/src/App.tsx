@@ -7,7 +7,6 @@ import {
   Check,
   ChevronRight,
   CircleHelp,
-  CircleDot,
   DoorOpen,
   Eye,
   Fan,
@@ -15,6 +14,7 @@ import {
   Gauge,
   ListChecks,
   Menu,
+  Plus,
   SlidersHorizontal,
   TrainFront,
   UploadCloud,
@@ -55,7 +55,7 @@ function downloadText(filename: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-function TopBar({ menuOpen, onToggle, connected }: { menuOpen: boolean; onToggle: () => void; connected: boolean }) {
+function TopBar({ menuOpen, onToggle }: { menuOpen: boolean; onToggle: () => void }) {
   return (
     <header className="topbar">
       <button className="mobile-menu" onClick={onToggle} aria-label={menuOpen ? "Close menu" : "Open menu"}>
@@ -63,10 +63,6 @@ function TopBar({ menuOpen, onToggle, connected }: { menuOpen: boolean; onToggle
       </button>
       <div className="brand-mark"><TrainFront size={20} strokeWidth={1.8} /></div>
       <div className="brand-copy"><strong>RailGuard</strong></div>
-      <div className="topbar-actions">
-        <span className="system-pill"><span className={`live-dot ${connected ? "" : "offline"}`} /> Analysis service {connected ? "ready" : "unavailable"}</span>
-        <span className="event-label">NebulaX 2026</span>
-      </div>
     </header>
   );
 }
@@ -319,7 +315,7 @@ export function ResultPanel({ result, onReset }: { result: PredictionResponse; o
     <section className="results-card">
       <div className="results-header">
         <div><span className="eyebrow">Analysis complete</span><h2>{result.task_name}</h2><p>{result.source_file}</p></div>
-        <div className="results-actions"><span className={`mode-badge ${result.mode}`}>{result.mode === "real" ? "Analysis completed" : "Demonstration result"}</span><button className="download-button" onClick={() => downloadText(result.output_filename, result.csv_text)}><ArrowDownToLine size={17} /> Export data</button></div>
+        <div className="results-actions"><span className={`mode-badge ${result.mode}`}>{result.mode === "real" ? "Analysis completed" : "Demonstration result"}</span><button className="new-analysis-button" onClick={onReset}><Plus size={17} /> Start another analysis</button><button className="download-button" onClick={() => downloadText(result.output_filename, result.csv_text)}><ArrowDownToLine size={17} /> Export data</button></div>
       </div>
       {result.mode === "demo" && <div className="demo-banner"><AlertTriangle size={18} /><div><strong>Demonstration mode</strong><span>This output is simulated and cannot support an operational decision or competition submission.</span></div></div>}
       <nav className="result-navigation" aria-label="Result detail level">
@@ -329,7 +325,6 @@ export function ResultPanel({ result, onReset }: { result: PredictionResponse; o
       {view === "why" && <WhyResult decision={decision} />}
       {view === "technical" && <TechnicalEvidence result={result} />}
       {view === "learn" && <LearnView task={result.task} />}
-      <div className="results-footer"><div><CircleDot size={15} /><span>The result file has been checked and is ready to download.</span></div><button className="text-button" onClick={onReset}>Start another analysis</button></div>
     </section>
   );
 }
@@ -342,16 +337,14 @@ export default function App() {
   const [runningTask, setRunningTask] = useState<TaskId | null>(null);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [apiConnected, setApiConnected] = useState(false);
   const [retryAction, setRetryAction] = useState<"tasks" | "analysis" | null>(null);
 
   function retryLoadTasks() {
     setError("");
     setRetryAction(null);
     fetchTasks()
-      .then((nextTasks) => { setTasks(nextTasks); setApiConnected(true); })
+      .then(setTasks)
       .catch(() => {
-        setApiConnected(false);
         setRetryAction("tasks");
         setError("The analysis service is temporarily unavailable. Try again in a few minutes or contact the RailGuard administrator.");
       });
@@ -359,9 +352,8 @@ export default function App() {
 
   useEffect(() => {
     void fetchTasks()
-      .then((nextTasks) => { setTasks(nextTasks); setApiConnected(true); })
+      .then(setTasks)
       .catch(() => {
-        setApiConnected(false);
         setRetryAction("tasks");
         setError("The analysis service is temporarily unavailable. Try again in a few minutes or contact the RailGuard administrator.");
       });
@@ -391,7 +383,6 @@ export default function App() {
       const nextResult = await runPrediction(taskId, file);
       setResults((current) => ({ ...current, [taskId]: nextResult }));
       setFiles((current) => ({ ...current, [taskId]: null }));
-      setApiConnected(true);
     }
     catch (caught) {
       setRetryAction("analysis");
@@ -414,13 +405,12 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <TopBar menuOpen={menuOpen} onToggle={() => setMenuOpen((value) => !value)} connected={apiConnected} />
+      <TopBar menuOpen={menuOpen} onToggle={() => setMenuOpen((value) => !value)} />
       <Sidebar tasks={tasks} selected={selected} onSelect={selectTask} open={menuOpen} />
       <main className="main-content">
         <section className="intro">
-          <div><span className="eyebrow">Condition monitoring console</span><h1>Turn sensor data into<br /><em>maintenance decisions.</em></h1></div>
+          <div><h1>Turn sensor data into<br /><em>maintenance decisions.</em></h1></div>
         </section>
-        <div className="workflow-strip"><span className="workflow-active"><b>1</b> Select subsystem</span><i /><span className={file ? "workflow-active" : ""}><b>2</b> Upload data</span><i /><span className={result ? "workflow-active" : ""}><b>3</b> Review decision</span><i /><span className={result ? "workflow-active" : ""}><b>4</b> Inspect evidence</span></div>
         <TaskSelector tasks={tasks} selected={selected} onSelect={selectTask} />
         {error && <div className="error-banner" role="alert"><AlertTriangle size={18} /><span>{error}</span>{retryAction && <button className="retry-button" onClick={retry}>Try again</button>}<button className="dismiss-button" onClick={() => { setError(""); setRetryAction(null); }} aria-label="Dismiss message"><X size={16} /></button></div>}
         {!result ? <UploadPanel task={task} file={file} onFile={selectFile} onRun={analyse} running={runningTask === selected} busy={runningTask !== null} /> : <ResultPanel result={result} onReset={resetSelectedAnalysis} />}

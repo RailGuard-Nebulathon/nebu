@@ -61,6 +61,7 @@ Legend: `[x]` implemented, `[~]` partial, `[ ]` not implemented.
 
 ## Post-acceptance hardening
 
+- [x] Removed the top-right service/event labels, introductory console label and redundant workflow timeline; Start another analysis now appears as a prominent result-header action beside Export data.
 - [x] Removed non-operational branding, coverage, footer, introductory and playbook disclaimer copy from the React interface to reduce reading load for workers.
 - [x] React analysis workspaces retain each subsystem's file or completed result while users move between categories; only Start another analysis clears the selected subsystem's work.
 - [x] Door real-inference responses retain per-cycle predicted-class confidence for technical review and use the lowest cycle confidence as a conservative reliability summary without changing the official competition CSV schema.
