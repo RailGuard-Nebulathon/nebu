@@ -1,2 +1,0 @@
-"""Corrugation model namespace."""
-

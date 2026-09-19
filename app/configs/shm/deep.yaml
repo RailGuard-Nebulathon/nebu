@@ -1,5 +1,0 @@
-task: shm
-model: damagenet
-runtime: {device: cuda, amp_dtype: bfloat16, matmul_precision: high}
-training: {batch_size: 8}
-model_params: {hidden_channels: 32, heteroscedastic: true}

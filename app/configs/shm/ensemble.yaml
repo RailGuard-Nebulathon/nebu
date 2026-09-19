@@ -1,4 +1,0 @@
-task: shm
-model: ensemble
-ensemble: {weighting: inverse_validation_error}
-

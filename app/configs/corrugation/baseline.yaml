@@ -1,4 +1,0 @@
-task: corrugation
-model: extra_trees
-corrugation: {sampling_rate_hz: 10000, class_weight: balanced}
-

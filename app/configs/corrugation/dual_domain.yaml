@@ -1,5 +1,0 @@
-task: corrugation
-model: dual_domain
-runtime: {device: cuda, amp_dtype: bfloat16, matmul_precision: high}
-training: {batch_size: 16}
-model_params: {hidden_channels: 32, spectral_bins: 128}

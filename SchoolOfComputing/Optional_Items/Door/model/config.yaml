@@ -1,0 +1,3 @@
+selection: stratified_operation_status_cv_macro_f1
+folds: 5
+probability_ensemble: uniform_mean
