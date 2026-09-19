@@ -22,7 +22,7 @@ export interface PredictionResponse {
   visual: {
     ranking?: Array<{ car: string; score: number }>;
     probabilities?: Record<string, number>;
-    segments?: Array<Record<string, string>>;
+    segments?: Array<Record<string, string | number | null>>;
     damage?: number;
     interval?: [number, number];
   };

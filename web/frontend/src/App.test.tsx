@@ -18,6 +18,19 @@ const acvResult: PredictionResponse = {
   notices: ["Demonstration result only."],
 };
 
+const doorResult: PredictionResponse = {
+  task: "door",
+  task_name: "Door diagnostics",
+  mode: "real",
+  source_file: "door.csv",
+  output_filename: "door_predictions.csv",
+  rows: [{ start_time: "start-1", end_time: "end-1", prediction: "Normal" }],
+  summary: { cycles: 1, abnormal_cycles: 0, confidence: 0.913 },
+  visual: { segments: [{ start_time: "start-1", end_time: "end-1", prediction: "Normal", confidence: 0.913 }] },
+  csv_text: "start_time,end_time,prediction\nstart-1,end-1,Normal\n",
+  notices: [],
+};
+
 describe("ResultPanel progressive disclosure", () => {
   it("defaults to a complete quick decision sourced from a playbook", () => {
     render(<ResultPanel result={acvResult} onReset={() => undefined} />);
@@ -43,6 +56,16 @@ describe("ResultPanel progressive disclosure", () => {
     await user.click(screen.getByRole("button", { name: "Learn" }));
     expect(screen.getByRole("heading", { name: "How to read this result" })).toBeInTheDocument();
     expect(screen.getByText("Use official limits only")).toBeInTheDocument();
+  });
+
+  it("shows Door confidence per cycle in technical evidence", async () => {
+    const user = userEvent.setup();
+    render(<ResultPanel result={doorResult} onReset={() => undefined} />);
+
+    expect(screen.getByText(/lowest predicted-cycle confidence is 91.3%/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Technical evidence" }));
+    expect(screen.getByRole("columnheader", { name: "Model confidence" })).toBeInTheDocument();
+    expect(screen.getByText("91.3%")).toBeInTheDocument();
   });
 });
 

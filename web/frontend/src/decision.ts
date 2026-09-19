@@ -90,6 +90,11 @@ function reliabilityFor(result: PredictionResponse): Pick<DecisionViewModel, "re
   }
   const confidence = numeric(result.summary.confidence);
   if (confidence !== null) {
+    if (result.task === "door") {
+      return confidence >= CONFIDENCE_REVIEW_THRESHOLD
+        ? { reliability: "Reliable", reliabilityReason: `The lowest predicted-cycle confidence is ${(confidence * 100).toFixed(1)}%. This is model confidence, not a safety probability.` }
+        : { reliability: "Review advised", reliabilityReason: `The lowest predicted-cycle confidence is ${(confidence * 100).toFixed(1)}%, below the display policy's 80% review threshold.` };
+    }
     return confidence >= CONFIDENCE_REVIEW_THRESHOLD
       ? { reliability: "Reliable", reliabilityReason: `${(confidence * 100).toFixed(1)}% model confidence; this is not a safety probability.` }
       : { reliability: "Review advised", reliabilityReason: `${(confidence * 100).toFixed(1)}% model confidence is below the display policy's 80% review threshold.` };

@@ -152,8 +152,21 @@ def _format_real(task: str, filename: str, predictions: list[dict[str, Any]]) ->
             }
             for item in predictions
         ]
+        segments = [
+            {**row, "confidence": item.get("confidence")}
+            for row, item in zip(rows, predictions, strict=True)
+        ]
+        confidences = [
+            float(item["confidence"])
+            for item in predictions
+            if item.get("confidence") is not None
+        ]
         abnormal = sum(row["prediction"] == "Abnormal resistance" for row in rows)
-        return rows, {"cycles": len(rows), "abnormal_cycles": abnormal}, {"segments": rows[:50]}
+        return rows, {
+            "cycles": len(rows),
+            "abnormal_cycles": abnormal,
+            "confidence": min(confidences) if confidences else None,
+        }, {"segments": segments[:50]}
     if task == "acv":
         ordered = sorted(predictions, key=lambda item: _probability(item, "True"), reverse=True)
         ranking = [str(item["sample_id"]).zfill(2) for item in ordered]

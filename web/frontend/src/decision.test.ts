@@ -41,6 +41,14 @@ describe("buildDecision", () => {
     expect(decision.nextChecks).toEqual(["Use approved checklist RG-4."]);
   });
 
+  it("uses the lowest Door cycle confidence as a conservative reliability summary", () => {
+    const decision = buildDecision(result("door", { summary: { cycles: 2, abnormal_cycles: 1, confidence: 0.81 } }));
+
+    expect(decision.reliability).toBe("Reliable");
+    expect(decision.reliabilityReason).toContain("lowest predicted-cycle confidence is 81.0%");
+    expect(decision.reliabilityReason).toContain("not a safety probability");
+  });
+
   it("maps ACV separation to Reliable and close candidates to Review advised", () => {
     const clear = buildDecision(result("acv", { summary: { top_car: "03", cars_ranked: 2 }, visual: { ranking: [{ car: "03", score: 0.7 }, { car: "06", score: 0.2 }] } }));
     const close = buildDecision(result("acv", { summary: { top_car: "03", cars_ranked: 2 }, visual: { ranking: [{ car: "03", score: 0.42 }, { car: "06", score: 0.37 }] } }));

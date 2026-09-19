@@ -200,7 +200,7 @@ function DoorResult({ result }: { result: PredictionResponse }) {
   return (
     <div className="door-result">
       <div className="metric-row"><Metric label="Detected cycles" value={String(result.summary.cycles)} /><Metric label="Abnormal resistance" value={String(result.summary.abnormal_cycles)} alert={Number(result.summary.abnormal_cycles) > 0} /></div>
-      <div className="table-wrap"><table><thead><tr><th>Start</th><th>End</th><th>Condition</th></tr></thead><tbody>{segments.map((row, index) => <tr key={index}><td>{row.start_time}</td><td>{row.end_time}</td><td><span className={`condition ${row.prediction === "Normal" ? "normal" : "alert"}`}>{row.prediction}</span></td></tr>)}</tbody></table></div>
+      <div className="table-wrap"><table><thead><tr><th>Start</th><th>End</th><th>Condition</th><th>Model confidence</th></tr></thead><tbody>{segments.map((row, index) => <tr key={index}><td>{row.start_time}</td><td>{row.end_time}</td><td><span className={`condition ${row.prediction === "Normal" ? "normal" : "alert"}`}>{row.prediction}</span></td><td>{typeof row.confidence === "number" ? `${(row.confidence * 100).toFixed(1)}%` : "Not reported"}</td></tr>)}</tbody></table></div>
     </div>
   );
 }

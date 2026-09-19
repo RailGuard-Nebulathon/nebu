@@ -61,3 +61,28 @@ def test_rejects_wrong_extension(monkeypatch: pytest.MonkeyPatch) -> None:
         files={"file": ("case.csv", b"wrong", "text/csv")},
     )
     assert response.status_code == 415
+
+
+def test_door_real_format_reports_conservative_confidence_without_changing_official_rows(
+) -> None:
+    predictions = [
+        {
+            "prediction": "Normal",
+            "confidence": 0.94,
+            "metadata": {"start_time": "start-1", "end_time": "end-1"},
+        },
+        {
+            "prediction": "Abnormal resistance",
+            "confidence": 0.81,
+            "metadata": {"start_time": "start-2", "end_time": "end-2"},
+        },
+    ]
+
+    rows, summary, visual = api_module._format_real("door", "door.csv", predictions)
+
+    assert rows == [
+        {"start_time": "start-1", "end_time": "end-1", "prediction": "Normal"},
+        {"start_time": "start-2", "end_time": "end-2", "prediction": "Abnormal resistance"},
+    ]
+    assert summary == {"cycles": 2, "abnormal_cycles": 1, "confidence": 0.81}
+    assert [segment["confidence"] for segment in visual["segments"]] == [0.94, 0.81]
