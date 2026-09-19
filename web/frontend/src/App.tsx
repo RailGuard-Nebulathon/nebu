@@ -114,8 +114,8 @@ function TaskSelector({ tasks, selected, onSelect }: { tasks: TaskDescriptor[]; 
   );
 }
 
-function UploadPanel({ task, file, onFile, onRun, running }: {
-  task: TaskDescriptor; file: File | null; onFile: (file: File | null) => void; onRun: () => void; running: boolean;
+function UploadPanel({ task, file, onFile, onRun, running, busy }: {
+  task: TaskDescriptor; file: File | null; onFile: (file: File | null) => void; onRun: () => void; running: boolean; busy: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -160,7 +160,7 @@ function UploadPanel({ task, file, onFile, onRun, running }: {
           <span className={`status-icon ${task.bundle_available ? "ready" : "unavailable"}`}>{task.bundle_available ? <Check size={14} /> : <AlertTriangle size={14} />}</span>
           <div><strong>{task.bundle_available ? "Analysis ready" : "Analysis unavailable"}</strong><span>{task.bundle_available ? "The approved model is available." : "This subsystem has not been configured yet."}</span></div>
         </div>
-        <button className="primary-button" disabled={!file || running || !task.bundle_available} onClick={onRun}>
+        <button className="primary-button" disabled={!file || busy || !task.bundle_available} onClick={onRun}>
           {running ? <><span className="spinner" /> Analysing</> : <>Run analysis <ChevronRight size={17} /></>}
         </button>
       </div>
@@ -344,9 +344,9 @@ export function ResultPanel({ result, onReset }: { result: PredictionResponse; o
 export default function App() {
   const [tasks, setTasks] = useState<TaskDescriptor[]>(fallbackTasks);
   const [selected, setSelected] = useState<TaskId>("acv");
-  const [file, setFile] = useState<File | null>(null);
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<PredictionResponse | null>(null);
+  const [files, setFiles] = useState<Partial<Record<TaskId, File | null>>>({});
+  const [results, setResults] = useState<Partial<Record<TaskId, PredictionResponse | null>>>({});
+  const [runningTask, setRunningTask] = useState<TaskId | null>(null);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [apiConnected, setApiConnected] = useState(false);
@@ -374,29 +374,44 @@ export default function App() {
       });
   }, []);
   const task = useMemo(() => tasks.find((item) => item.id === selected) ?? tasks[0], [tasks, selected]);
+  const file = files[selected] ?? null;
+  const result = results[selected] ?? null;
 
-  function selectTask(next: TaskId) { setSelected(next); setFile(null); setResult(null); setError(""); setMenuOpen(false); }
+  function selectTask(next: TaskId) { setSelected(next); setError(""); setRetryAction(null); setMenuOpen(false); }
   function selectFile(next: File | null) {
     const uploadError = next ? getUploadError(next) : null;
     if (uploadError) {
-      setFile(null);
+      setFiles((current) => ({ ...current, [selected]: null }));
       setRetryAction(null);
       setError(uploadError);
       return;
     }
-    setFile(next);
+    setFiles((current) => ({ ...current, [selected]: next }));
     setError("");
     setRetryAction(null);
   }
   async function analyse() {
-    if (!file) return;
-    setRunning(true); setError(""); setRetryAction(null); setResult(null);
-    try { setResult(await runPrediction(selected, file)); setApiConnected(true); }
+    if (!file || runningTask !== null) return;
+    const taskId = selected;
+    setRunningTask(taskId); setError(""); setRetryAction(null);
+    try {
+      const nextResult = await runPrediction(taskId, file);
+      setResults((current) => ({ ...current, [taskId]: nextResult }));
+      setFiles((current) => ({ ...current, [taskId]: null }));
+      setApiConnected(true);
+    }
     catch (caught) {
       setRetryAction("analysis");
       setError(caught instanceof Error ? caught.message : "The analysis could not be completed. Check the file and try again.");
     }
-    finally { setRunning(false); }
+    finally { setRunningTask(null); }
+  }
+
+  function resetSelectedAnalysis() {
+    setResults((current) => ({ ...current, [selected]: null }));
+    setFiles((current) => ({ ...current, [selected]: null }));
+    setError("");
+    setRetryAction(null);
   }
 
   function retry() {
@@ -416,7 +431,7 @@ export default function App() {
         <div className="workflow-strip"><span className="workflow-active"><b>1</b> Select subsystem</span><i /><span className={file ? "workflow-active" : ""}><b>2</b> Upload data</span><i /><span className={result ? "workflow-active" : ""}><b>3</b> Review decision</span><i /><span className={result ? "workflow-active" : ""}><b>4</b> Inspect evidence</span></div>
         <TaskSelector tasks={tasks} selected={selected} onSelect={selectTask} />
         {error && <div className="error-banner" role="alert"><AlertTriangle size={18} /><span>{error}</span>{retryAction && <button className="retry-button" onClick={retry}>Try again</button>}<button className="dismiss-button" onClick={() => { setError(""); setRetryAction(null); }} aria-label="Dismiss message"><X size={16} /></button></div>}
-        {!result ? <UploadPanel task={task} file={file} onFile={selectFile} onRun={analyse} running={running} /> : <ResultPanel result={result} onReset={() => { setResult(null); setFile(null); }} />}
+        {!result ? <UploadPanel task={task} file={file} onFile={selectFile} onRun={analyse} running={runningTask === selected} busy={runningTask !== null} /> : <ResultPanel result={result} onReset={resetSelectedAnalysis} />}
         <footer><span>RailGuard AI</span><p>Evidence for operators. Predictions for maintenance teams.</p><p>Not an approved maintenance rule.</p></footer>
       </main>
     </div>

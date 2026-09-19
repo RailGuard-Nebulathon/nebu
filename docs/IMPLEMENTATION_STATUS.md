@@ -61,6 +61,7 @@ Legend: `[x]` implemented, `[~]` partial, `[ ]` not implemented.
 
 ## Post-acceptance hardening
 
+- [x] React analysis workspaces retain each subsystem's file or completed result while users move between categories; only Start another analysis clears the selected subsystem's work.
 - [x] Door real-inference responses retain per-cycle predicted-class confidence for technical review and use the lowest cycle confidence as a conservative reliability summary without changing the official competition CSV schema.
 - [x] Production React analysis now always requests an approved real model, disables unconfigured subsystems, uses plain operational copy, validates a 30 MB upload ceiling, provides actionable retry errors, and raises small interface typography for non-technical accessibility.
 - [x] Removed the misleading local-inference claim from the cloud-backed React interface; the sidebar now retains only the neutral version and decision-support notice.

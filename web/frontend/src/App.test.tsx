@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
-import { ResultPanel } from "./App";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import App, { ResultPanel } from "./App";
 import type { PredictionResponse } from "./types";
 import { getUploadError } from "./upload";
 
@@ -30,6 +30,8 @@ const doorResult: PredictionResponse = {
   csv_text: "start_time,end_time,prediction\nstart-1,end-1,Normal\n",
   notices: [],
 };
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("ResultPanel progressive disclosure", () => {
   it("defaults to a complete quick decision sourced from a playbook", () => {
@@ -78,5 +80,44 @@ describe("production upload safeguards", () => {
     expect(getUploadError({ size: 30 * 1024 * 1024 + 1 })).toBe(
       "The file is too large. Choose a file smaller than 30 MB.",
     );
+  });
+});
+
+describe("subsystem workspaces", () => {
+  it("retains a result across category changes until Start another analysis is selected", async () => {
+    const productionAcvResult = { ...acvResult, mode: "real" as const, notices: [] };
+    const tasks = [
+      { id: "door", name: "Door diagnostics", short_name: "Door", description: "Door analysis", accepted_extensions: [".csv"], output_filename: "door_predictions.csv", bundle_available: true },
+      { id: "acv", name: "ACV leak localisation", short_name: "ACV", description: "ACV analysis", accepted_extensions: [".xlsx"], output_filename: "acv_predictions.csv", bundle_available: true },
+      { id: "corrugation", name: "Rail corrugation", short_name: "Rail", description: "Rail analysis", accepted_extensions: [".csv"], output_filename: "rail_predictions.csv", bundle_available: true },
+      { id: "shm", name: "Structural health monitoring", short_name: "SHM", description: "SHM analysis", accepted_extensions: [".csv", ".txt"], output_filename: "shm_predictions.csv", bundle_available: true },
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      const body = url.endsWith("/api/tasks") ? tasks : productionAcvResult;
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
+    }));
+    const user = userEvent.setup();
+    render(<App />);
+
+    await screen.findByText("Analysis service ready");
+    const upload = document.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(upload).not.toBeNull();
+    await user.upload(upload!, new File(["workbook"], "case.xlsx"));
+    await user.click(screen.getByRole("button", { name: "Run analysis" }));
+    await screen.findByRole("heading", { name: /Car 03 is the first refrigerant-leak inspection candidate/i });
+
+    const selector = screen.getByLabelText("Select subsystem");
+    await user.click(within(selector).getByRole("button", { name: /Door analysis/ }));
+    expect(screen.getByRole("heading", { name: "Upload sensor data" })).toBeInTheDocument();
+
+    await user.click(within(selector).getByRole("button", { name: /ACV analysis/ }));
+    expect(screen.getByRole("heading", { name: /Car 03 is the first refrigerant-leak inspection candidate/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Start another analysis" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Upload sensor data" })).toBeInTheDocument());
+    await user.click(within(selector).getByRole("button", { name: /Door analysis/ }));
+    await user.click(within(selector).getByRole("button", { name: /ACV analysis/ }));
+    expect(screen.getByRole("heading", { name: "Upload sensor data" })).toBeInTheDocument();
   });
 });
