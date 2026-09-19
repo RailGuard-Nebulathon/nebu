@@ -17,7 +17,6 @@ import {
   Menu,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   TrainFront,
   UploadCloud,
   Waves,
@@ -26,7 +25,9 @@ import {
 import { fetchTasks, runPrediction } from "./api";
 import { buildDecision } from "./decision";
 import type { DecisionViewModel } from "./decision";
-import type { PredictionResponse, RunMode, TaskDescriptor, TaskId } from "./types";
+import type { PredictionResponse, TaskDescriptor, TaskId } from "./types";
+import { getUploadError, MAX_UPLOAD_LABEL } from "./upload";
+
 
 const fallbackTasks: TaskDescriptor[] = [
   { id: "door", name: "Door diagnostics", short_name: "Door", description: "Detect door cycles and classify abnormal resistance.", accepted_extensions: [".csv"], output_filename: "door_predictions.csv", bundle_available: false },
@@ -66,7 +67,7 @@ function TopBar({ menuOpen, onToggle, connected }: { menuOpen: boolean; onToggle
       <div className="topbar-divider" />
       <span className="workspace-label">Analysis workspace</span>
       <div className="topbar-actions">
-        <span className="system-pill"><span className={`live-dot ${connected ? "" : "offline"}`} /> API {connected ? "connected" : "offline"}</span>
+        <span className="system-pill"><span className={`live-dot ${connected ? "" : "offline"}`} /> Analysis service {connected ? "ready" : "unavailable"}</span>
         <span className="event-label">NebulaX 2026</span>
       </div>
     </header>
@@ -84,7 +85,7 @@ function Sidebar({ tasks, selected, onSelect, open }: { tasks: TaskDescriptor[];
         return (
           <button key={task.id} className={`side-link ${selected === task.id ? "side-current" : ""}`} onClick={() => onSelect(task.id)}>
             <Icon size={18} /><span>{task.short_name}</span>
-            <span className={`availability-dot ${task.bundle_available ? "ready" : "demo"}`} title={task.bundle_available ? "Bundle ready" : "Demo fallback"} />
+            <span className={`availability-dot ${task.bundle_available ? "ready" : "unavailable"}`} title={task.bundle_available ? "Analysis ready" : "Analysis unavailable"} />
           </button>
         );
       })}
@@ -113,8 +114,8 @@ function TaskSelector({ tasks, selected, onSelect }: { tasks: TaskDescriptor[]; 
   );
 }
 
-function UploadPanel({ task, file, onFile, onRun, running, mode, setMode }: {
-  task: TaskDescriptor; file: File | null; onFile: (file: File | null) => void; onRun: () => void; running: boolean; mode: RunMode; setMode: (mode: RunMode) => void;
+function UploadPanel({ task, file, onFile, onRun, running }: {
+  task: TaskDescriptor; file: File | null; onFile: (file: File | null) => void; onRun: () => void; running: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -129,9 +130,6 @@ function UploadPanel({ task, file, onFile, onRun, running, mode, setMode }: {
     <section className="upload-card">
       <div className="card-heading">
         <div><span className="eyebrow">Input</span><h2>Upload sensor data</h2></div>
-        <div className="mode-control" aria-label="Inference mode">
-          {(["auto", "real", "demo"] as RunMode[]).map((value) => <button key={value} className={mode === value ? "active" : ""} onClick={() => setMode(value)}>{value}</button>)}
-        </div>
       </div>
       {!file ? (
         <div
@@ -147,7 +145,7 @@ function UploadPanel({ task, file, onFile, onRun, running, mode, setMode }: {
           <input ref={inputRef} type="file" accept={accept} hidden onChange={(event) => receive(event.target.files)} />
           <span className="upload-icon"><UploadCloud size={28} /></span>
           <strong>Drop your {task.short_name} file here</strong>
-          <span>or click to browse · {task.accepted_extensions.join(" / ")} · up to 100 MB</span>
+          <span>or click to browse · {task.accepted_extensions.join(" / ")} · up to {MAX_UPLOAD_LABEL}</span>
           <button className="secondary-button" type="button">Choose file</button>
         </div>
       ) : (
@@ -159,10 +157,10 @@ function UploadPanel({ task, file, onFile, onRun, running, mode, setMode }: {
       )}
       <div className="upload-footer">
         <div className="bundle-status">
-          <span className={`status-icon ${task.bundle_available ? "real" : "demo"}`}>{task.bundle_available ? <Check size={14} /> : <Sparkles size={14} />}</span>
-          <div><strong>{task.bundle_available ? "Trusted bundle detected" : "Demo fallback available"}</strong><span>{task.bundle_available ? "Auto mode will run real inference." : "Configure a bundle for submission-ready output."}</span></div>
+          <span className={`status-icon ${task.bundle_available ? "ready" : "unavailable"}`}>{task.bundle_available ? <Check size={14} /> : <AlertTriangle size={14} />}</span>
+          <div><strong>{task.bundle_available ? "Analysis ready" : "Analysis unavailable"}</strong><span>{task.bundle_available ? "The approved model is available." : "This subsystem has not been configured yet."}</span></div>
         </div>
-        <button className="primary-button" disabled={!file || running} onClick={onRun}>
+        <button className="primary-button" disabled={!file || running || !task.bundle_available} onClick={onRun}>
           {running ? <><span className="spinner" /> Analysing</> : <>Run analysis <ChevronRight size={17} /></>}
         </button>
       </div>
@@ -328,7 +326,7 @@ export function ResultPanel({ result, onReset }: { result: PredictionResponse; o
     <section className="results-card">
       <div className="results-header">
         <div><span className="eyebrow">Analysis complete</span><h2>{result.task_name}</h2><p>{result.source_file}</p></div>
-        <div className="results-actions"><span className={`mode-badge ${result.mode}`}>{result.mode === "real" ? "Real inference" : "Demo result"}</span><button className="download-button" onClick={() => downloadText(result.output_filename, result.csv_text)}><ArrowDownToLine size={17} /> Export data</button></div>
+        <div className="results-actions"><span className={`mode-badge ${result.mode}`}>{result.mode === "real" ? "Analysis completed" : "Demonstration result"}</span><button className="download-button" onClick={() => downloadText(result.output_filename, result.csv_text)}><ArrowDownToLine size={17} /> Export data</button></div>
       </div>
       {result.mode === "demo" && <div className="demo-banner"><AlertTriangle size={18} /><div><strong>Demonstration mode</strong><span>This output is simulated and cannot support an operational decision or competition submission.</span></div></div>}
       <nav className="result-navigation" aria-label="Result detail level">
@@ -338,7 +336,7 @@ export function ResultPanel({ result, onReset }: { result: PredictionResponse; o
       {view === "why" && <WhyResult decision={decision} />}
       {view === "technical" && <TechnicalEvidence result={result} />}
       {view === "learn" && <LearnView task={result.task} />}
-      <div className="results-footer"><div><CircleDot size={15} /><span>Output validated against the official {result.output_filename} schema.</span></div><button className="text-button" onClick={onReset}>Start another analysis</button></div>
+      <div className="results-footer"><div><CircleDot size={15} /><span>The result file has been checked and is ready to download.</span></div><button className="text-button" onClick={onReset}>Start another analysis</button></div>
     </section>
   );
 }
@@ -347,27 +345,63 @@ export default function App() {
   const [tasks, setTasks] = useState<TaskDescriptor[]>(fallbackTasks);
   const [selected, setSelected] = useState<TaskId>("acv");
   const [file, setFile] = useState<File | null>(null);
-  const [mode, setMode] = useState<RunMode>("auto");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [apiConnected, setApiConnected] = useState(false);
+  const [retryAction, setRetryAction] = useState<"tasks" | "analysis" | null>(null);
 
-  useEffect(() => {
+  function retryLoadTasks() {
+    setError("");
+    setRetryAction(null);
     fetchTasks()
       .then((nextTasks) => { setTasks(nextTasks); setApiConnected(true); })
-      .catch(() => { setApiConnected(false); setError("The API is unavailable. Start the FastAPI service to run analysis."); });
+      .catch(() => {
+        setApiConnected(false);
+        setRetryAction("tasks");
+        setError("The analysis service is temporarily unavailable. Try again in a few minutes or contact the RailGuard administrator.");
+      });
+  }
+
+  useEffect(() => {
+    void fetchTasks()
+      .then((nextTasks) => { setTasks(nextTasks); setApiConnected(true); })
+      .catch(() => {
+        setApiConnected(false);
+        setRetryAction("tasks");
+        setError("The analysis service is temporarily unavailable. Try again in a few minutes or contact the RailGuard administrator.");
+      });
   }, []);
   const task = useMemo(() => tasks.find((item) => item.id === selected) ?? tasks[0], [tasks, selected]);
 
   function selectTask(next: TaskId) { setSelected(next); setFile(null); setResult(null); setError(""); setMenuOpen(false); }
+  function selectFile(next: File | null) {
+    const uploadError = next ? getUploadError(next) : null;
+    if (uploadError) {
+      setFile(null);
+      setRetryAction(null);
+      setError(uploadError);
+      return;
+    }
+    setFile(next);
+    setError("");
+    setRetryAction(null);
+  }
   async function analyse() {
     if (!file) return;
-    setRunning(true); setError(""); setResult(null);
-    try { setResult(await runPrediction(selected, file, mode)); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : "Analysis failed"); }
+    setRunning(true); setError(""); setRetryAction(null); setResult(null);
+    try { setResult(await runPrediction(selected, file)); setApiConnected(true); }
+    catch (caught) {
+      setRetryAction("analysis");
+      setError(caught instanceof Error ? caught.message : "The analysis could not be completed. Check the file and try again.");
+    }
     finally { setRunning(false); }
+  }
+
+  function retry() {
+    if (retryAction === "tasks") retryLoadTasks();
+    if (retryAction === "analysis") void analyse();
   }
 
   return (
@@ -381,8 +415,8 @@ export default function App() {
         </section>
         <div className="workflow-strip"><span className="workflow-active"><b>1</b> Select subsystem</span><i /><span className={file ? "workflow-active" : ""}><b>2</b> Upload data</span><i /><span className={result ? "workflow-active" : ""}><b>3</b> Review decision</span><i /><span className={result ? "workflow-active" : ""}><b>4</b> Inspect evidence</span></div>
         <TaskSelector tasks={tasks} selected={selected} onSelect={selectTask} />
-        {error && <div className="error-banner"><AlertTriangle size={18} /><span>{error}</span><button onClick={() => setError("")}><X size={16} /></button></div>}
-        {!result ? <UploadPanel task={task} file={file} onFile={setFile} onRun={analyse} running={running} mode={mode} setMode={setMode} /> : <ResultPanel result={result} onReset={() => { setResult(null); setFile(null); }} />}
+        {error && <div className="error-banner" role="alert"><AlertTriangle size={18} /><span>{error}</span>{retryAction && <button className="retry-button" onClick={retry}>Try again</button>}<button className="dismiss-button" onClick={() => { setError(""); setRetryAction(null); }} aria-label="Dismiss message"><X size={16} /></button></div>}
+        {!result ? <UploadPanel task={task} file={file} onFile={selectFile} onRun={analyse} running={running} /> : <ResultPanel result={result} onReset={() => { setResult(null); setFile(null); }} />}
         <footer><span>RailGuard AI</span><p>Evidence for operators. Predictions for maintenance teams.</p><p>Not an approved maintenance rule.</p></footer>
       </main>
     </div>

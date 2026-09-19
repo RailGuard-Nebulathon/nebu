@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { ResultPanel } from "./App";
 import type { PredictionResponse } from "./types";
+import { getUploadError } from "./upload";
 
 const acvResult: PredictionResponse = {
   task: "acv",
@@ -42,5 +43,17 @@ describe("ResultPanel progressive disclosure", () => {
     await user.click(screen.getByRole("button", { name: "Learn" }));
     expect(screen.getByRole("heading", { name: "How to read this result" })).toBeInTheDocument();
     expect(screen.getByText("Use official limits only")).toBeInTheDocument();
+  });
+});
+
+describe("production upload safeguards", () => {
+  it("accepts files at the documented limit", () => {
+    expect(getUploadError({ size: 30 * 1024 * 1024 })).toBeNull();
+  });
+
+  it("explains how to fix an oversized upload", () => {
+    expect(getUploadError({ size: 30 * 1024 * 1024 + 1 })).toBe(
+      "The file is too large. Choose a file smaller than 30 MB.",
+    );
   });
 });
